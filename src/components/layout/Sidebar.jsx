@@ -94,7 +94,7 @@ export default function Sidebar({ active, onNavigate }) {
       {/* Mobile: floating pill nav bar */}
       <div
         className="fixed inset-x-0 z-40 flex justify-center px-4 md:hidden"
-        style={{ bottom: "calc(env(safe-area-inset-bottom) + 44px)" }}
+        style={{ bottom: "calc(env(safe-area-inset-bottom) + 54px)" }}
       >
         <nav className="flex items-center gap-1 rounded-full border border-sidebar-border bg-sidebar p-1.5 shadow-lg">
           {NAV_ITEMS.map((item) => {
