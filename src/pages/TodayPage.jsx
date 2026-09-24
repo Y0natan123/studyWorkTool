@@ -123,7 +123,69 @@ export default function TodayPage({ onNavigate }) {
         </div>
 
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-        {/* Focus timer — dark navy block */}
+
+        {/* Today's Tasks — light warm card */}
+        <Card>
+          <CardContent className="flex flex-col gap-3 py-5">
+            <div className="flex items-center justify-between">
+              <h2 className="text-base font-semibold">משימות היום</h2>
+              <span className="text-xs font-medium text-muted-foreground">
+                {doneCount}/{todaysTasks.length} הושלמו
+              </span>
+            </div>
+
+            <div className="flex flex-col gap-1">
+              {todaysTasks.length === 0 && (
+                <p className="py-3 text-center text-xs text-muted-foreground">אין משימות להיום.</p>
+              )}
+              {todaysTasks.map((t) => {
+                const taskCourse = courses.find((c) => c.id === t.courseId)
+                const done = t.status === "done"
+                return (
+                  <button
+                    key={t.id}
+                    onClick={() => toggleTaskDone(t.id)}
+                    className="flex items-center gap-2.5 rounded-lg px-1.5 py-2 text-start transition-colors hover:bg-accent"
+                  >
+                    <span
+                      className={cn(
+                        "flex h-4.5 w-4.5 shrink-0 items-center justify-center rounded-full border-2 transition-colors",
+                        done ? "border-primary bg-primary" : "border-muted-foreground/30"
+                      )}
+                    >
+                      {done && <span className="h-1.5 w-1.5 rounded-full bg-primary-foreground" />}
+                    </span>
+                    <span
+                      className={cn(
+                        "flex-1 truncate text-sm",
+                        done && "text-muted-foreground line-through"
+                      )}
+                    >
+                      {t.title}
+                    </span>
+                    {taskCourse && (
+                      <span className="shrink-0 rounded-full bg-secondary px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-secondary-foreground">
+                        {taskCourse.code}
+                      </span>
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+
+            <Button
+              variant="outline"
+              size="sm"
+              className="mt-1 gap-1.5 rounded-xl border-dashed"
+              onClick={() => setCreateTaskOpen(true)}
+            >
+              <Plus className="h-3.5 w-3.5" />
+              הוסף משימה
+            </Button>
+          </CardContent>
+        </Card>
+
+                {/* Focus timer — dark navy block */}
         <Card className="border-none bg-primary text-primary-foreground shadow-lg">
           <CardContent className="flex flex-col items-center gap-4 px-4 py-6 sm:gap-6 sm:py-10">
             <Tabs value={mode} onValueChange={selectMode}>
@@ -188,66 +250,6 @@ export default function TodayPage({ onNavigate }) {
           </CardContent>
         </Card>
 
-        {/* Today's Tasks — light warm card */}
-        <Card>
-          <CardContent className="flex flex-col gap-3 py-5">
-            <div className="flex items-center justify-between">
-              <h2 className="text-base font-semibold">משימות היום</h2>
-              <span className="text-xs font-medium text-muted-foreground">
-                {doneCount}/{todaysTasks.length} הושלמו
-              </span>
-            </div>
-
-            <div className="flex flex-col gap-1">
-              {todaysTasks.length === 0 && (
-                <p className="py-3 text-center text-xs text-muted-foreground">אין משימות להיום.</p>
-              )}
-              {todaysTasks.map((t) => {
-                const taskCourse = courses.find((c) => c.id === t.courseId)
-                const done = t.status === "done"
-                return (
-                  <button
-                    key={t.id}
-                    onClick={() => toggleTaskDone(t.id)}
-                    className="flex items-center gap-2.5 rounded-lg px-1.5 py-2 text-start transition-colors hover:bg-accent"
-                  >
-                    <span
-                      className={cn(
-                        "flex h-4.5 w-4.5 shrink-0 items-center justify-center rounded-full border-2 transition-colors",
-                        done ? "border-primary bg-primary" : "border-muted-foreground/30"
-                      )}
-                    >
-                      {done && <span className="h-1.5 w-1.5 rounded-full bg-primary-foreground" />}
-                    </span>
-                    <span
-                      className={cn(
-                        "flex-1 truncate text-sm",
-                        done && "text-muted-foreground line-through"
-                      )}
-                    >
-                      {t.title}
-                    </span>
-                    {taskCourse && (
-                      <span className="shrink-0 rounded-full bg-secondary px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-secondary-foreground">
-                        {taskCourse.code}
-                      </span>
-                    )}
-                  </button>
-                )
-              })}
-            </div>
-
-            <Button
-              variant="outline"
-              size="sm"
-              className="mt-1 gap-1.5 rounded-xl border-dashed"
-              onClick={() => setCreateTaskOpen(true)}
-            >
-              <Plus className="h-3.5 w-3.5" />
-              הוסף משימה
-            </Button>
-          </CardContent>
-        </Card>
         </div>
 
         {/* This week */}
