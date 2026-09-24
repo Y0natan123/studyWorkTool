@@ -99,8 +99,20 @@ export default function TodayPage({ onNavigate }) {
       transition={{ duration: 0.2 }}
       className="mx-auto grid max-w-7xl grid-cols-1 items-start gap-6 lg:grid-cols-[1fr_220px]"
     >
+      {/* Today's schedule — shown first on mobile, side column on desktop */}
+      <div className="order-1 flex flex-col gap-3 lg:order-2 lg:sticky lg:top-6">
+        <h2 className="text-sm font-semibold text-muted-foreground">מערכת שעות היום</h2>
+        <TodayScheduleStrip
+          events={events}
+          courses={courses}
+          googleCalendarEvents={googleCalendarEvents}
+          vertical
+          compact
+        />
+      </div>
+
       {/* Main column: greeting, timer + tasks, weekly bar strip */}
-      <div className="flex flex-col gap-6">
+      <div className="order-2 flex flex-col gap-6 lg:order-1">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">
             {greeting(nowDate.getHours())}
@@ -239,18 +251,6 @@ export default function TodayPage({ onNavigate }) {
 
         {/* This week */}
         <WeeklyBarStrip data={studyHistory} />
-      </div>
-
-      {/* Today's schedule — independent side column, full height, vertical list, no container */}
-      <div className="flex flex-col gap-3 lg:sticky lg:top-6">
-        <h2 className="text-sm font-semibold text-muted-foreground">מערכת שעות היום</h2>
-        <TodayScheduleStrip
-          events={events}
-          courses={courses}
-          googleCalendarEvents={googleCalendarEvents}
-          vertical
-          compact
-        />
       </div>
 
       <QuickCreateModal open={createTaskOpen} onOpenChange={setCreateTaskOpen} initialType="assignment" />
