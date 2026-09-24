@@ -63,6 +63,7 @@ export default function QuickCreateModal({
   const [location, setLocation] = useState("")
   const [isRecurring, setIsRecurring] = useState(false)
   const [recurUntil, setRecurUntil] = useState("")
+  const [deadlineOnly, setDeadlineOnly] = useState(false)
 
   useEffect(() => {
     if (open) {
@@ -74,6 +75,7 @@ export default function QuickCreateModal({
       setLocation("")
       setIsRecurring(false)
       setRecurUntil("")
+      setDeadlineOnly(false)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
@@ -83,7 +85,7 @@ export default function QuickCreateModal({
     if (!name.trim()) return
     if (isRecurring && !recurUntil) return
 
-    const durationMs = (Number(effort) || 30) * 60_000
+    const durationMs = deadlineOnly ? 0 : (Number(effort) || 30) * 60_000
     const firstStart = new Date(dueDate)
     const untilDate = isRecurring ? new Date(`${recurUntil}T23:59:59`) : null
 
@@ -106,7 +108,7 @@ export default function QuickCreateModal({
           status: "todo",
           priority: "medium",
           dueDate: start.toISOString(),
-          estimateMinutes: Number(effort) || 30,
+          estimateMinutes: deadlineOnly ? null : Number(effort) || 30,
         })
       }
 
@@ -274,34 +276,55 @@ export default function QuickCreateModal({
             )}
           </div>
 
-          <div className="flex flex-col gap-3 rounded-2xl bg-secondary/60 p-4">
-            <div className="flex items-center justify-between">
-              <Label
-                htmlFor="qc-effort"
-                className="text-xs font-semibold uppercase tracking-wide text-muted-foreground"
-              >
-                מאמץ משוער
-              </Label>
-              <span className="flex items-center gap-1.5 text-sm font-semibold">
-                <span aria-hidden>{effortEmoji(Number(effort))}</span>
-                {effort} דק׳
-              </span>
-            </div>
-            <input
-              id="qc-effort"
-              type="range"
-              min={EFFORT_MIN}
-              max={EFFORT_MAX}
-              step={EFFORT_STEP}
-              value={effort}
-              onChange={(e) => setEffort(e.target.value)}
-              className="h-2 w-full cursor-pointer appearance-none rounded-full bg-muted-foreground/20 accent-primary"
-            />
-            <div className="flex items-center justify-between text-[11px] text-muted-foreground">
-              <span>קצר</span>
-              <span>עבודה מעמיקה</span>
-            </div>
+          <div className="flex flex-col gap-2 rounded-2xl bg-secondary/60 p-4">
+            <button
+              type="button"
+              onClick={() => setDeadlineOnly((d) => !d)}
+              className="flex items-center gap-2 text-sm font-medium"
+            >
+              <span
+                className={cn(
+                  "flex h-4.5 w-4.5 shrink-0 items-center justify-center rounded border",
+                  deadlineOnly ? "border-primary bg-primary" : "border-input"
+                )}
+              />
+              רק תאריך יעד, בלי הערכת זמן עבודה
+            </button>
+            <p className="ps-6 text-[11px] text-muted-foreground">
+              לדוגמה: הגשת תרגיל בית — רק דדליין, בלי צורך לתזמן זמן עבודה עליה.
+            </p>
           </div>
+
+          {!deadlineOnly && (
+            <div className="flex flex-col gap-3 rounded-2xl bg-secondary/60 p-4">
+              <div className="flex items-center justify-between">
+                <Label
+                  htmlFor="qc-effort"
+                  className="text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+                >
+                  מאמץ משוער
+                </Label>
+                <span className="flex items-center gap-1.5 text-sm font-semibold">
+                  <span aria-hidden>{effortEmoji(Number(effort))}</span>
+                  {effort} דק׳
+                </span>
+              </div>
+              <input
+                id="qc-effort"
+                type="range"
+                min={EFFORT_MIN}
+                max={EFFORT_MAX}
+                step={EFFORT_STEP}
+                value={effort}
+                onChange={(e) => setEffort(e.target.value)}
+                className="h-2 w-full cursor-pointer appearance-none rounded-full bg-muted-foreground/20 accent-primary"
+              />
+              <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                <span>קצר</span>
+                <span>עבודה מעמיקה</span>
+              </div>
+            </div>
+          )}
 
           <DialogFooter>
             <Button

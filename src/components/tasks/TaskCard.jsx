@@ -63,10 +63,12 @@ export default function TaskCard({ task, course, onDragStart, onDelete }) {
           <Calendar className="h-3 w-3" />
           {dueDate.toLocaleDateString("he-IL", { month: "short", day: "numeric" })}
         </span>
-        <span className="flex items-center gap-1">
-          <Clock className="h-3 w-3" />
-          {task.estimateMinutes} דק׳
-        </span>
+        {task.estimateMinutes != null && (
+          <span className="flex items-center gap-1">
+            <Clock className="h-3 w-3" />
+            {task.estimateMinutes} דק׳
+          </span>
+        )}
         <span className={cn("font-medium", PRIORITY_CLASSES[task.priority])}>{PRIORITY_LABELS[task.priority]}</span>
       </div>
     </motion.div>

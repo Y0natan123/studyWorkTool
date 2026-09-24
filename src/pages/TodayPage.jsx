@@ -100,12 +100,33 @@ export default function TodayPage({ onNavigate }) {
   }
 
   const todayStr = nowDate.toDateString()
-  const todaysTasks = useMemo(() => {
-    return tasks
-      .filter((t) => new Date(t.dueDate).toDateString() === todayStr || t.status === "in-progress")
-      .slice(0, 6)
+  // Once a task has shown up in today's list (due today, or in-progress), keep
+  // showing it for the rest of the day even after it's marked done — otherwise
+  // completing an in-progress task makes it vanish instead of showing as done.
+  const [todaysTaskIds, setTodaysTaskIds] = useLocalStorage("sm_todays_task_ids", {
+    date: todayStr,
+    ids: [],
+  })
+
+  useEffect(() => {
+    const qualifies = tasks.filter(
+      (t) => new Date(t.dueDate).toDateString() === todayStr || t.status === "in-progress"
+    )
+    setTodaysTaskIds((prev) => {
+      const baseIds = prev.date === todayStr ? prev.ids : []
+      const nextIds = Array.from(new Set([...baseIds, ...qualifies.map((t) => t.id)]))
+      if (prev.date === todayStr && nextIds.length === baseIds.length) return prev
+      return { date: todayStr, ids: nextIds }
+    })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tasks, todayStr])
+
+  const todaysTasks = useMemo(() => {
+    const idSet = new Set(todaysTaskIds.date === todayStr ? todaysTaskIds.ids : [])
+    return tasks
+      .filter((t) => idSet.has(t.id))
+      .sort((a, b) => (a.status === "done") - (b.status === "done"))
+  }, [tasks, todaysTaskIds, todayStr])
   const doneCount = todaysTasks.filter((t) => t.status === "done").length
 
   return (
@@ -149,7 +170,7 @@ export default function TodayPage({ onNavigate }) {
               </span>
             </div>
 
-            <div className="flex flex-col gap-1">
+            <div className="flex flex-col gap-1 overflow-y-auto pe-1" style={{ maxHeight: 280 }}>
               {todaysTasks.length === 0 && (
                 <p className="py-3 text-center text-xs text-muted-foreground">אין משימות להיום.</p>
               )}
