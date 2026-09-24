@@ -1,4 +1,4 @@
-import React from "react"
+import React, { useEffect, useMemo, useState } from "react"
 import {
   CalendarDays,
   LayoutDashboard,
@@ -10,18 +10,48 @@ import {
   BookOpen,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { useStudyStore } from "@/store/StudyStoreContext"
 
-const NAV_ITEMS = [
+const BASE_NAV_ITEMS = [
   { id: "today", label: "היום", icon: Home },
   { id: "schedule", label: "מערכת שעות", icon: CalendarDays },
-  { id: "live", label: "פוקוס", icon: Radio },
   { id: "courses", label: "קורסים", icon: BookOpen },
   { id: "dashboard", label: "אנליטיקה", icon: LayoutDashboard },
   { id: "tasks", label: "לוח משימות", icon: KanbanSquare },
   { id: "settings", label: "הגדרות", icon: Settings },
 ]
 
+function findActiveClassEvent(events, nowMs) {
+  return (
+    events.find((e) => {
+      if (e.type !== "lecture" && e.type !== "tutorial") return false
+      const start = new Date(e.start).getTime()
+      const end = new Date(e.end).getTime()
+      return nowMs >= start && nowMs <= end
+    }) || null
+  )
+}
+
 export default function Sidebar({ active, onNavigate }) {
+  const { events } = useStudyStore()
+  const [now, setNow] = useState(Date.now())
+
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 15_000)
+    return () => clearInterval(t)
+  }, [])
+
+  const hasActiveClass = useMemo(() => Boolean(findActiveClassEvent(events, now)), [events, now])
+
+  const NAV_ITEMS = useMemo(() => {
+    if (!hasActiveClass) return BASE_NAV_ITEMS
+    return [
+      ...BASE_NAV_ITEMS.slice(0, 2),
+      { id: "live", label: "שיעור פעיל", icon: Radio, live: true },
+      ...BASE_NAV_ITEMS.slice(2),
+    ]
+  }, [hasActiveClass])
+
   return (
     <>
       {/* Desktop: icon rail on the right (reading-start side in RTL) */}
@@ -46,7 +76,12 @@ export default function Sidebar({ active, onNavigate }) {
                     : "text-sidebar-foreground hover:bg-accent hover:text-accent-foreground"
                 )}
               >
-                <Icon className="h-5 w-5" />
+                <Icon
+                  className={cn(
+                    "h-5 w-5",
+                    item.live && !isActive && "animate-[pulse_2.4s_ease-in-out_infinite] text-rose-500"
+                  )}
+                />
                 <span className="pointer-events-none absolute right-full mr-2 whitespace-nowrap rounded-md bg-popover px-2 py-1 text-xs font-medium text-popover-foreground opacity-0 shadow-md transition-opacity group-hover:opacity-100 border border-border z-50">
                   {item.label}
                 </span>
@@ -77,7 +112,12 @@ export default function Sidebar({ active, onNavigate }) {
                     : "text-sidebar-foreground/70"
                 )}
               >
-                <Icon className="h-5 w-5" />
+                <Icon
+                  className={cn(
+                    "h-5 w-5",
+                    item.live && !isActive && "animate-[pulse_2.4s_ease-in-out_infinite] text-rose-500"
+                  )}
+                />
                 <span className="sr-only">{item.label}</span>
               </button>
             )
