@@ -11,6 +11,7 @@ import WeeklyBarStrip from "@/components/dashboard/WeeklyBarStrip"
 import { cn } from "@/lib/utils"
 import { useStudyStore } from "@/store/StudyStoreContext"
 import { useIsMobile } from "@/hooks/useIsMobile"
+import { useLocalStorage } from "@/hooks/useLocalStorage"
 
 const MODES = {
   focus: { label: "פוקוס", minutes: 25 },
@@ -40,47 +41,62 @@ export default function TodayPage({ onNavigate }) {
     useStudyStore()
   const isMobile = useIsMobile()
   const [now, setNow] = useState(Date.now())
-  const [mode, setMode] = useState("focus")
-  const [secondsLeft, setSecondsLeft] = useState(MODES.focus.minutes * 60)
-  const [running, setRunning] = useState(false)
+  // timerState persists across refreshes: endAt is the timestamp the running
+  // countdown reaches 0 at; pausedSecondsLeft holds the frozen value while stopped.
+  const [timerState, setTimerState] = useLocalStorage("sm_timer_state", {
+    mode: "focus",
+    endAt: null,
+    pausedSecondsLeft: MODES.focus.minutes * 60,
+  })
+  const { mode, endAt, pausedSecondsLeft } = timerState
+  const running = endAt !== null
   const [createTaskOpen, setCreateTaskOpen] = useState(false)
 
   useEffect(() => {
-    const t = setInterval(() => setNow(Date.now()), 30_000)
-    return () => clearInterval(t)
-  }, [])
-
-  useEffect(() => {
-    if (!running) return
-    const t = setInterval(() => setSecondsLeft((s) => Math.max(s - 1, 0)), 1000)
+    const t = setInterval(() => setNow(Date.now()), running ? 1000 : 30_000)
     return () => clearInterval(t)
   }, [running])
 
+  const totalSeconds = MODES[mode].minutes * 60
+  const secondsLeft = running
+    ? Math.max(Math.round((endAt - now) / 1000), 0)
+    : pausedSecondsLeft
+
   useEffect(() => {
-    if (secondsLeft === 0 && running) setRunning(false)
-  }, [secondsLeft, running])
+    if (running && secondsLeft === 0) {
+      setTimerState((s) => ({ ...s, endAt: null, pausedSecondsLeft: 0 }))
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [running, secondsLeft])
 
   const nowDate = new Date(now)
   const activeEvent = useMemo(() => findActiveClassEvent(events, now), [events, now])
 
-  const totalSeconds = MODES[mode].minutes * 60
   const elapsedPct = totalSeconds > 0 ? ((totalSeconds - secondsLeft) / totalSeconds) * 100 : 0
   const mm = String(Math.floor(secondsLeft / 60)).padStart(2, "0")
   const ss = String(secondsLeft % 60).padStart(2, "0")
 
   const selectMode = (nextMode) => {
-    setMode(nextMode)
-    if (!running) setSecondsLeft(MODES[nextMode].minutes * 60)
+    setTimerState({ mode: nextMode, endAt: null, pausedSecondsLeft: MODES[nextMode].minutes * 60 })
+  }
+
+  const toggleRunning = () => {
+    setTimerState((s) => {
+      if (s.endAt !== null) {
+        const secsLeft = Math.max(Math.round((s.endAt - Date.now()) / 1000), 0)
+        return { ...s, endAt: null, pausedSecondsLeft: secsLeft }
+      }
+      const secsLeft = s.pausedSecondsLeft > 0 ? s.pausedSecondsLeft : MODES[s.mode].minutes * 60
+      return { ...s, endAt: Date.now() + secsLeft * 1000 }
+    })
   }
 
   const handleReset = () => {
-    setRunning(false)
-    setSecondsLeft(totalSeconds)
+    setTimerState((s) => ({ ...s, endAt: null, pausedSecondsLeft: MODES[s.mode].minutes * 60 }))
   }
 
   const handleSkip = () => {
-    setRunning(false)
-    setSecondsLeft(0)
+    setTimerState((s) => ({ ...s, endAt: null, pausedSecondsLeft: 0 }))
   }
 
   const todayStr = nowDate.toDateString()
@@ -223,7 +239,7 @@ export default function TodayPage({ onNavigate }) {
               <Button
                 size="icon"
                 className="h-14 w-14 rounded-full bg-white text-primary shadow-md hover:bg-white/90"
-                onClick={() => setRunning((r) => !r)}
+                onClick={toggleRunning}
               >
                 {running ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5" />}
               </Button>
