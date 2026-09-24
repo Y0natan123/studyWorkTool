@@ -99,6 +99,10 @@ export default function TodayPage({ onNavigate }) {
       transition={{ duration: 0.2 }}
       className="mx-auto grid max-w-7xl grid-cols-1 items-start gap-6 lg:grid-cols-[1fr_220px]"
     >
+      <h1 className="text-2xl font-semibold tracking-tight">
+        {greeting(nowDate.getHours())}
+        {settings.userName ? `, ${settings.userName}` : ""}
+      </h1>
       {/* Today's schedule — shown first on mobile, side column on desktop */}
       <div className="order-1 flex flex-col gap-3 lg:order-2 lg:sticky lg:top-6">
         <h2 className="text-sm font-semibold text-muted-foreground">מערכת שעות היום</h2>
@@ -114,10 +118,7 @@ export default function TodayPage({ onNavigate }) {
       {/* Main column: greeting, timer + tasks, weekly bar strip */}
       <div className="order-2 flex flex-col gap-6 lg:order-1">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            {greeting(nowDate.getHours())}
-            {settings.userName ? `, ${settings.userName}` : ""}
-          </h1>
+         
           <p className="text-sm text-muted-foreground">בוא נעשה את היום הזה שווה.</p>
         </div>
 
