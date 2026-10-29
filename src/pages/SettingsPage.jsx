@@ -50,9 +50,6 @@ export default function SettingsPage() {
     calendarSyncStatus,
     pullGoogleCalendarEvents,
     googleCalendarEvents,
-    moodleSyncStatus,
-    moodleSyncError,
-    syncMoodleNow,
   } = useStudyStore()
 
   const fileInputRef = useRef(null)
@@ -511,59 +508,6 @@ export default function SettingsPage() {
               </div>
             </div>
           )}
-
-          <div className="flex flex-col gap-2 rounded-lg border border-border p-3">
-            <div>
-              <p className="text-sm font-medium">סנכרון עם Moodle (טכניון)</p>
-              <p className="text-xs text-muted-foreground">
-                מושך את הקורסים, המטלות (עם דדליין) וקבצי העזר שלכם מ-Moodle. ייצרו טוקן אישי
-                ב-Moodle: העדפות ← מפתחות אבטחה ← ניהול טוקנים.
-              </p>
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="moodle-token">טוקן גישה אישי</Label>
-              <Input
-                id="moodle-token"
-                type="password"
-                placeholder="הדביקו כאן את הטוקן מ-Moodle"
-                value={settings.moodleToken || ""}
-                onChange={(e) => updateSettings({ moodleToken: e.target.value })}
-                onBlur={() => pushSettingsNow()}
-              />
-            </div>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                {moodleSyncStatus === "syncing" && (
-                  <>
-                    <RefreshCw className="h-3.5 w-3.5 animate-spin" />
-                    מסנכרן…
-                  </>
-                )}
-                {moodleSyncStatus === "synced" && (
-                  <>
-                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
-                    מסונכרן
-                  </>
-                )}
-                {moodleSyncStatus === "error" && (
-                  <>
-                    <AlertCircle className="h-3.5 w-3.5 text-destructive" />
-                    {moodleSyncError ? `הסנכרון נכשל: ${moodleSyncError}` : "הסנכרון נכשל"}
-                  </>
-                )}
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                className="gap-1.5"
-                disabled={!settings.moodleToken?.trim() || moodleSyncStatus === "syncing"}
-                onClick={syncMoodleNow}
-              >
-                <RefreshCw className="h-4 w-4" />
-                סנכרן עכשיו
-              </Button>
-            </div>
-          </div>
 
           <div className="flex flex-wrap gap-2">
             <Button variant="outline" size="sm" className="gap-1.5" onClick={handleExport}>

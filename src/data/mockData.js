@@ -321,7 +321,6 @@ export const seedSettings = {
   assignmentAlertStagesHours: [24, 3],
   telegramBotToken: "",
   telegramChatId: "",
-  moodleToken: "",
 }
 
 // Custom per-course/per-event textual reminders (e.g. "Bring formula sheet").

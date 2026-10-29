@@ -11,7 +11,6 @@ import {
   COURSE_COLORS,
 } from "@/data/mockData"
 import * as sheetsSync from "@/lib/sheetsSync"
-import * as moodleSync from "@/lib/moodleSync"
 import { HEATMAP_BLOCKS, HEATMAP_DAYS } from "@/lib/constants"
 
 const StudyStoreContext = createContext(null)
@@ -487,127 +486,6 @@ export function StudyStoreProvider({ children }) {
     [setTasks]
   )
 
-  const [moodleSyncStatus, setMoodleSyncStatus] = useState("idle") // idle | syncing | synced | error
-  const [moodleSyncError, setMoodleSyncError] = useState(null)
-
-  // Pulls courses, assignments and course files from Moodle and merges them into
-  // local state. Existing records are matched by their Moodle id (moodleCourseId /
-  // moodleAssignId) so re-syncing updates in place instead of creating duplicates.
-  const syncMoodleNow = useCallback(async () => {
-    const token = settings.moodleToken?.trim()
-    if (!token) return
-    setMoodleSyncStatus("syncing")
-    setMoodleSyncError(null)
-    try {
-      const siteInfo = await moodleSync.getSiteInfo(token)
-      const moodleCourses = await moodleSync.getUserCourses(token, siteInfo.userid)
-      const courseIds = moodleCourses.map((mc) => mc.id)
-
-      const [assignmentGroups, contentsList] = await Promise.all([
-        courseIds.length ? moodleSync.getAssignments(token, courseIds) : Promise.resolve([]),
-        Promise.all(courseIds.map((id) => moodleSync.getCourseContents(token, id))),
-      ])
-
-      // 1) Merge courses, building the Moodle-id -> local-id map as we go.
-      let moodleIdToLocalId = new Map()
-      setCourses((prevCourses) => {
-        const byMoodleId = new Map(
-          prevCourses.filter((c) => c.moodleCourseId != null).map((c) => [c.moodleCourseId, c.id])
-        )
-        const next = [...prevCourses]
-        moodleCourses.forEach((mc, i) => {
-          const existingId = byMoodleId.get(mc.id)
-          if (existingId) {
-            const idx = next.findIndex((c) => c.id === existingId)
-            next[idx] = { ...next[idx], name: mc.fullname || next[idx].name }
-            return
-          }
-          const newId = uid("c")
-          byMoodleId.set(mc.id, newId)
-          next.push({
-            id: newId,
-            name: mc.fullname || mc.shortname || "קורס ללא שם",
-            code: mc.shortname || "",
-            credits: 0,
-            color: COURSE_COLORS[(prevCourses.length + i) % COURSE_COLORS.length],
-            assignmentsTotal: 0,
-            assignmentsDone: 0,
-            weeklyHours: 0,
-            links: [],
-            notes: [],
-            resourceLinks: [],
-            syllabusTopics: [],
-            moodleCourseId: mc.id,
-          })
-        })
-        moodleIdToLocalId = byMoodleId
-
-        // 2) Attach course files (resourceLinks) to their matching course in the same pass.
-        return next.map((c) => {
-          if (c.moodleCourseId == null) return c
-          const idx = courseIds.indexOf(c.moodleCourseId)
-          if (idx === -1) return c
-          const sections = contentsList[idx] || []
-          const existingUrls = new Set((c.resourceLinks || []).map((l) => l.url))
-          const newLinks = []
-          sections.forEach((section) => {
-            ;(section.modules || []).forEach((mod) => {
-              ;(mod.contents || []).forEach((file) => {
-                if (!file.fileurl || existingUrls.has(file.fileurl)) return
-                existingUrls.add(file.fileurl)
-                newLinks.push({
-                  id: uid("rl"),
-                  label: file.filename || mod.name || "קובץ",
-                  url: `${file.fileurl}${file.fileurl.includes("?") ? "&" : "?"}token=${token}`,
-                  category: "general",
-                })
-              })
-            })
-          })
-          if (newLinks.length === 0) return c
-          return { ...c, resourceLinks: [...(c.resourceLinks || []), ...newLinks] }
-        })
-      })
-
-      // 3) Merge assignments into tasks, resolving each to its local courseId.
-      setTasks((prevTasks) => {
-        const byMoodleId = new Map(
-          prevTasks.filter((t) => t.moodleAssignId != null).map((t) => [t.moodleAssignId, t.id])
-        )
-        const next = [...prevTasks]
-        assignmentGroups.forEach((group) => {
-          const localCourseId = moodleIdToLocalId.get(group.id) || null
-          ;(group.assignments || []).forEach((a) => {
-            const dueDate = a.duedate ? new Date(a.duedate * 1000).toISOString() : null
-            if (!dueDate) return
-            const existingId = byMoodleId.get(a.id)
-            if (existingId) {
-              const idx = next.findIndex((t) => t.id === existingId)
-              next[idx] = { ...next[idx], title: a.name || next[idx].title, dueDate, courseId: localCourseId }
-              return
-            }
-            next.push({
-              id: uid("t"),
-              title: a.name || "מטלה",
-              status: "todo",
-              priority: "medium",
-              courseId: localCourseId,
-              dueDate,
-              estimateMinutes: null,
-              moodleAssignId: a.id,
-            })
-          })
-        })
-        return next
-      })
-
-      setMoodleSyncStatus("synced")
-    } catch (err) {
-      setMoodleSyncStatus("error")
-      setMoodleSyncError(err.message)
-    }
-  }, [settings.moodleToken, setCourses, setTasks])
-
   const toggleTaskDone = useCallback(
     (id) => {
       setTasks((prev) =>
@@ -711,9 +589,6 @@ export function StudyStoreProvider({ children }) {
       pullGoogleCalendarEvents,
       calendarPushStatus,
       calendarPushError,
-      moodleSyncStatus,
-      moodleSyncError,
-      syncMoodleNow,
     }),
     [
       courses,
@@ -757,9 +632,6 @@ export function StudyStoreProvider({ children }) {
       exportData,
       importData,
       resetAllData,
-      moodleSyncStatus,
-      moodleSyncError,
-      syncMoodleNow,
     ]
   )
 
