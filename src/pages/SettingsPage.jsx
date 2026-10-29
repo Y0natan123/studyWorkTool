@@ -16,6 +16,7 @@ import {
   BellOff,
   Send,
   CalendarPlus,
+  Search,
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -28,6 +29,7 @@ import { cn } from "@/lib/utils"
 import * as sheetsSync from "@/lib/sheetsSync"
 import { buildIcs, downloadIcs } from "@/lib/ics"
 import IcsImportModal from "@/components/shared/IcsImportModal"
+import * as sapCatalog from "@/lib/sapCatalog"
 
 export default function SettingsPage() {
   const {
@@ -38,6 +40,7 @@ export default function SettingsPage() {
     addCourse,
     updateCourse,
     deleteCourse,
+    addEvent,
     exportData,
     importData,
     resetAllData,
@@ -63,6 +66,87 @@ export default function SettingsPage() {
   )
   const [telegramTestStatus, setTelegramTestStatus] = useState("idle") // idle | sending | sent | error
   const [telegramTestError, setTelegramTestError] = useState(null)
+
+  const [sapQuery, setSapQuery] = useState("")
+  const [sapResults, setSapResults] = useState([])
+  const [sapSearchStatus, setSapSearchStatus] = useState("idle") // idle | loading | error
+  const [sapSearchError, setSapSearchError] = useState(null)
+  const [sapSelectedCourse, setSapSelectedCourse] = useState(null)
+  const [sapSelectedGroup, setSapSelectedGroup] = useState(null)
+  const [sapSemester, setSapSemester] = useState(null)
+  const [sapImportStatus, setSapImportStatus] = useState("idle") // idle | importing | done
+
+  const handleSapSearch = async (e) => {
+    e.preventDefault()
+    if (!sapQuery.trim()) return
+    setSapSearchStatus("loading")
+    setSapSearchError(null)
+    setSapSelectedCourse(null)
+    setSapSelectedGroup(null)
+    try {
+      const semesters = await sapCatalog.getRecentSemesters()
+      const latest = semesters[0]
+      setSapSemester(latest)
+      const catalog = await sapCatalog.getCourseCatalog(latest.year, latest.semester)
+      setSapResults(sapCatalog.searchCourses(catalog, sapQuery))
+      setSapSearchStatus("idle")
+    } catch (err) {
+      setSapSearchStatus("error")
+      setSapSearchError(err.message)
+    }
+  }
+
+  const handleSapImport = () => {
+    if (!sapSelectedCourse || sapSelectedGroup == null || !sapSemester) return
+    const general = sapSelectedCourse.general || {}
+    const courseName = general["שם מקצוע"] || "קורס ללא שם"
+    const courseCode = general["מספר מקצוע"] || ""
+    const credits = Number(general["נקודות"]) || 0
+
+    setSapImportStatus("importing")
+
+    const existing = courses.find((c) => c.code === courseCode)
+    const courseId = existing?.id || `c_sap_${Date.now().toString(36)}`
+    if (!existing) {
+      addCourse({ id: courseId, name: courseName, code: courseCode, credits })
+    }
+
+    const semesterStart = new Date(sapSemester.start)
+    const semesterEnd = new Date(sapSemester.end)
+    const groups = sapCatalog.getCourseGroups(sapSelectedCourse)
+    const group = groups.find((g) => g.group === sapSelectedGroup)
+
+    const existingKeys = new Set(
+      events
+        .filter((e) => e.courseId === courseId)
+        .map((e) => `${e.type}|${e.start}`)
+    )
+
+    group?.sessions.forEach((session) => {
+      const occurrences = sapCatalog.buildSessionOccurrences(session, semesterStart, semesterEnd)
+      const type = sapCatalog.sessionEventType(session)
+      const location = sapCatalog.sessionLocation(session)
+      occurrences.forEach(({ start, end }) => {
+        const key = `${type}|${start.toISOString()}`
+        if (existingKeys.has(key)) return
+        existingKeys.add(key)
+        addEvent({
+          title: courseName,
+          courseId: courseId || null,
+          type,
+          start: start.toISOString(),
+          end: end.toISOString(),
+          location: location || undefined,
+        })
+      })
+    })
+
+    setSapImportStatus("done")
+    setSapSelectedCourse(null)
+    setSapSelectedGroup(null)
+    setSapResults([])
+    setSapQuery("")
+  }
 
   const handleTestTelegram = async () => {
     if (!settings.appsScriptUrl?.trim()) return
@@ -415,6 +499,102 @@ export default function SettingsPage() {
               </button>
             </div>
           ))}
+
+          <div className="flex flex-col gap-2 rounded-lg border border-border p-3">
+            <p className="text-sm font-medium">חיפוש קורס מהטכניון (SAP)</p>
+            <p className="text-xs text-muted-foreground">
+              מביא את מערכת השעות של הקורס ישירות מקטלוג הקורסים הציבורי של הטכניון — בחרו קבוצת
+              רישום ושיעורי הקורס ייווספו אוטומטית למערכת השעות שלכם.
+            </p>
+            <form onSubmit={handleSapSearch} className="flex gap-2">
+              <Input
+                placeholder="שם קורס או מספר מקצוע"
+                value={sapQuery}
+                onChange={(e) => setSapQuery(e.target.value)}
+              />
+              <Button type="submit" size="sm" className="shrink-0 gap-1.5" disabled={sapSearchStatus === "loading"}>
+                <Search className="h-4 w-4" />
+                חפש
+              </Button>
+            </form>
+
+            {sapSearchStatus === "loading" && (
+              <p className="text-xs text-muted-foreground">מחפש…</p>
+            )}
+            {sapSearchStatus === "error" && (
+              <p className="flex items-center gap-1.5 text-xs text-destructive">
+                <AlertCircle className="h-3.5 w-3.5" />
+                {sapSearchError || "החיפוש נכשל"}
+              </p>
+            )}
+
+            {sapResults.length > 0 && !sapSelectedCourse && (
+              <div className="flex max-h-56 flex-col gap-1 overflow-y-auto">
+                {sapResults.map((c) => (
+                  <button
+                    key={c.general["מספר מקצוע"]}
+                    type="button"
+                    onClick={() => setSapSelectedCourse(c)}
+                    className="flex items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-start text-sm hover:bg-accent"
+                  >
+                    <span className="truncate">{c.general["שם מקצוע"]}</span>
+                    <span className="shrink-0 text-xs text-muted-foreground">{c.general["מספר מקצוע"]}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {sapSelectedCourse && (
+              <div className="flex flex-col gap-2 rounded-lg bg-secondary/60 p-2.5">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-medium">{sapSelectedCourse.general["שם מקצוע"]}</p>
+                  <button
+                    type="button"
+                    className="text-xs text-muted-foreground hover:text-foreground"
+                    onClick={() => {
+                      setSapSelectedCourse(null)
+                      setSapSelectedGroup(null)
+                    }}
+                  >
+                    שינוי
+                  </button>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {sapCatalog.getCourseGroups(sapSelectedCourse).map(({ group }) => (
+                    <button
+                      key={group}
+                      type="button"
+                      onClick={() => setSapSelectedGroup(group)}
+                      className={cn(
+                        "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+                        sapSelectedGroup === group
+                          ? "border-transparent bg-primary text-primary-foreground"
+                          : "border-border bg-background text-foreground hover:bg-accent"
+                      )}
+                    >
+                      קבוצה {group}
+                    </button>
+                  ))}
+                </div>
+                <Button
+                  size="sm"
+                  className="gap-1.5 self-start"
+                  disabled={sapSelectedGroup == null}
+                  onClick={handleSapImport}
+                >
+                  <CalendarPlus className="h-4 w-4" />
+                  הוסף למערכת השעות
+                </Button>
+              </div>
+            )}
+
+            {sapImportStatus === "done" && (
+              <p className="flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400">
+                <CheckCircle2 className="h-3.5 w-3.5" />
+                הקורס נוסף למערכת השעות
+              </p>
+            )}
+          </div>
 
           <form onSubmit={handleAddCourse} className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-[1fr_120px_100px_auto]">
             <Input
