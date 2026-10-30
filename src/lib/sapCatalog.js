@@ -108,3 +108,18 @@ export function sessionLocation(session) {
   const room = session["חדר"]
   return [building, room].filter(Boolean).join(" ")
 }
+
+const MAX_SYLLABUS_TOPICS = 12
+const MIN_TOPIC_LENGTH = 4
+
+// Splits the catalog's free-text syllabus paragraph into short topic labels, for use as
+// a checkable syllabus checklist. Splits on sentence/clause boundaries (periods, colons);
+// very short fragments are dropped, and the result is capped to stay readable.
+export function splitSyllabusTopics(syllabusText) {
+  if (!syllabusText) return []
+  return syllabusText
+    .split(/[.:]\s*/)
+    .map((s) => s.trim())
+    .filter((s) => s.length >= MIN_TOPIC_LENGTH)
+    .slice(0, MAX_SYLLABUS_TOPICS)
+}

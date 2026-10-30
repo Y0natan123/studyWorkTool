@@ -41,6 +41,8 @@ export default function SettingsPage() {
     updateCourse,
     deleteCourse,
     addEvent,
+    addSyllabusTopic,
+    upsertCourseNote,
     exportData,
     importData,
     resetAllData,
@@ -109,6 +111,24 @@ export default function SettingsPage() {
     const courseId = existing?.id || `c_sap_${Date.now().toString(36)}`
     if (!existing) {
       addCourse({ id: courseId, name: courseName, code: courseCode, credits })
+
+      sapCatalog.splitSyllabusTopics(general["סילבוס"]).forEach((topic) => {
+        addSyllabusTopic(courseId, topic)
+      })
+
+      const infoLines = [
+        general["אחראים"] && `אחראי קורס: ${general["אחראים"]}`,
+        general["מקצועות קדם"] && `מקצועות קדם: ${general["מקצועות קדם"]}`,
+        general["מועד א"] && `מועד א׳: ${general["מועד א"]}`,
+        general["מועד ב"] && `מועד ב׳: ${general["מועד ב"]}`,
+        general["הערות"] && `הערות: ${general["הערות"]}`,
+      ].filter(Boolean)
+      if (infoLines.length > 0) {
+        upsertCourseNote(courseId, {
+          title: "פרטי קורס (מ-SAP)",
+          contentMarkdown: infoLines.join("\n\n"),
+        })
+      }
     }
 
     const semesterStart = new Date(sapSemester.start)
@@ -503,8 +523,8 @@ export default function SettingsPage() {
           <div className="flex flex-col gap-2 rounded-lg border border-border p-3">
             <p className="text-sm font-medium">חיפוש קורס מהטכניון (SAP)</p>
             <p className="text-xs text-muted-foreground">
-              מביא את מערכת השעות של הקורס ישירות מקטלוג הקורסים הציבורי של הטכניון — בחרו קבוצת
-              רישום ושיעורי הקורס ייווספו אוטומטית למערכת השעות שלכם.
+              מביא את מערכת השעות, נושאי הסילבוס ופרטי הקורס (אחראי, מקצועות קדם, מועדי מבחנים)
+              ישירות מקטלוג הקורסים הציבורי של הטכניון — בחרו קבוצת רישום והכל ייווסף אוטומטית.
             </p>
             <form onSubmit={handleSapSearch} className="flex gap-2">
               <Input
