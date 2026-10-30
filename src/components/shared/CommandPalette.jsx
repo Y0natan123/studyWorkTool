@@ -59,7 +59,7 @@ export default function CommandPalette({ open, onOpenChange, onSelectCourse, onS
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="חיפוש קורסים, משימות, אירועים..."
-            className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+            className="flex-1 bg-transparent text-base outline-none placeholder:text-muted-foreground sm:text-sm"
           />
         </div>
         <div className="max-h-80 overflow-y-auto scrollbar-thin p-2">
