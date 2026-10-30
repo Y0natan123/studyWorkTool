@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react"
+import React, { useEffect, useRef, useState } from "react"
 import { FileText, BookOpen, Users, Lightbulb, PencilLine, Repeat } from "lucide-react"
 import {
   Dialog,
@@ -64,6 +64,7 @@ export default function QuickCreateModal({
   const [isRecurring, setIsRecurring] = useState(false)
   const [recurUntil, setRecurUntil] = useState("")
   const [deadlineOnly, setDeadlineOnly] = useState(false)
+  const nameInputRef = useRef(null)
 
   useEffect(() => {
     if (open) {
@@ -76,6 +77,10 @@ export default function QuickCreateModal({
       setIsRecurring(false)
       setRecurUntil("")
       setDeadlineOnly(false)
+      // Focus after the dialog's slide-in animation finishes (duration-200) — focusing
+      // a field mid-transform can make iOS Safari zoom into it and get stuck there.
+      const t = setTimeout(() => nameInputRef.current?.focus(), 250)
+      return () => clearTimeout(t)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
@@ -146,7 +151,7 @@ export default function QuickCreateModal({
             </Label>
             <Input
               id="qc-name"
-              autoFocus
+              ref={nameInputRef}
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="לדוגמה: תרגיל בית 5"

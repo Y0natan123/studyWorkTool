@@ -23,7 +23,7 @@ DialogOverlay.displayName = DialogPrimitive.Overlay.displayName
 
 // Below the `sm` breakpoint this renders as a bottom sheet (full-width, slides up from the
 // bottom edge, rounded top corners only); at `sm` and above it's the usual centered modal.
-const DialogContent = React.forwardRef(({ className, children, ...props }, ref) => (
+const DialogContent = React.forwardRef(({ className, children, onOpenAutoFocus, ...props }, ref) => (
   <DialogPortal>
     <DialogOverlay />
     <DialogPrimitive.Content
@@ -36,6 +36,14 @@ const DialogContent = React.forwardRef(({ className, children, ...props }, ref) 
         "sm:left-1/2 sm:top-1/2 sm:bottom-auto sm:max-h-none sm:w-full sm:max-w-lg sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-xl sm:border-b sm:data-[state=open]:slide-in-from-bottom-0 sm:data-[state=open]:fade-in-0 sm:data-[state=open]:zoom-in-95 sm:data-[state=closed]:slide-out-to-bottom-0 sm:data-[state=closed]:fade-out-0",
         className
       )}
+      // Radix focuses the first focusable element the instant the dialog mounts, while
+      // it's still sliding/zooming in — on iOS that can trigger a viewport zoom that gets
+      // stuck. Prevent the default immediate focus; callers that want a field focused do
+      // so themselves after the entrance animation finishes.
+      onOpenAutoFocus={(e) => {
+        e.preventDefault()
+        onOpenAutoFocus?.(e)
+      }}
       {...props}
     >
       <div className="mx-auto -mt-2 mb-1 h-1 w-10 rounded-full bg-border sm:hidden" />
