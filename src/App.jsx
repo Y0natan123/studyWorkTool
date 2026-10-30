@@ -65,7 +65,7 @@ function AppShell() {
       <div className="md:pr-16">
         <TopBar onOpenSearch={() => setSearchOpen(true)} onOpenCreate={() => setCreateOpen(true)} />
 
-        <main className="p-4 pb-20 sm:p-6 md:pb-6">
+        <main className="p-4 pb-32 sm:p-6 md:pb-6">
           <AnimatePresence mode="wait">
             {isCourseHub ? (
               <CourseHubPage

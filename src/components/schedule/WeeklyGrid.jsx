@@ -425,10 +425,10 @@ export default function WeeklyGrid({
                       compact ? "px-1 py-0.5" : "px-1.5 py-1",
                       tag.bg,
                       tag.border,
-                      isDragging ? "cursor-grabbing opacity-80 ring-2 ring-primary" : "cursor-grab"
+                      !compact && (isDragging ? "cursor-grabbing opacity-80 ring-2 ring-primary" : "cursor-grab")
                     )}
                     onClick={(e) => e.stopPropagation()}
-                    onPointerDown={(e) => handlePointerDownMove(e, ev)}
+                    onPointerDown={compact ? undefined : (e) => handlePointerDownMove(e, ev)}
                   >
                     <p className={cn("truncate text-[10px] font-semibold leading-tight", tag.text)}>
                       {ev.title}
@@ -441,12 +441,14 @@ export default function WeeklyGrid({
                     {ev.location && blockHeight(start, end, hourHeight) > (compact ? 40 : 34) && (
                       <p className="truncate text-[9px] text-muted-foreground/80">{ev.location}</p>
                     )}
-                    <div
-                      className="absolute inset-x-0 bottom-0 h-3 cursor-ns-resize opacity-0 group-hover:opacity-100"
-                      onPointerDown={(e) => handlePointerDownResize(e, ev)}
-                    >
-                      <div className="mx-auto h-0.5 w-6 rounded-full bg-current opacity-40" />
-                    </div>
+                    {!compact && (
+                      <div
+                        className="absolute inset-x-0 bottom-0 h-3 cursor-ns-resize opacity-0 group-hover:opacity-100"
+                        onPointerDown={(e) => handlePointerDownResize(e, ev)}
+                      >
+                        <div className="mx-auto h-0.5 w-6 rounded-full bg-current opacity-40" />
+                      </div>
+                    )}
                   </div>
                 )
               })}
