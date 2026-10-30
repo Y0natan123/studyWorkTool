@@ -151,6 +151,8 @@ export default function QuickCreateModal({
             </Label>
             <Input
               id="qc-name"
+              name="task-title"
+              autoComplete="off"
               ref={nameInputRef}
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -233,6 +235,8 @@ export default function QuickCreateModal({
               </Label>
               <Input
                 id="qc-location"
+                name="task-location"
+                autoComplete="off"
                 placeholder="אולם B"
                 value={location}
                 onChange={(e) => setLocation(e.target.value)}
