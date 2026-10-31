@@ -222,9 +222,28 @@ export function StudyStoreProvider({ children }) {
   // SAP schedule) without touching the course itself or its tasks.
   const deleteCourseEvents = useCallback(
     (courseId) => {
-      setEvents((prev) => prev.filter((e) => e.courseId !== courseId))
+      let calendarEventIds = []
+      setEvents((prev) => {
+        calendarEventIds = prev
+          .filter((e) => e.courseId === courseId && e.calendarEventId)
+          .map((e) => e.calendarEventId)
+        return prev.filter((e) => e.courseId !== courseId)
+      })
+
+      if (syncUrl && calendarEventIds.length > 0) {
+        setCalendarPushStatus("pushing")
+        Promise.all(calendarEventIds.map((id) => sheetsSync.deleteCalendarEvent(syncUrl, id)))
+          .then(() => {
+            setCalendarPushStatus("pushed")
+            setCalendarPushError(null)
+          })
+          .catch((err) => {
+            setCalendarPushStatus("error")
+            setCalendarPushError(err.message)
+          })
+      }
     },
-    [setEvents]
+    [setEvents, syncUrl]
   )
 
   // Upserts by note.id: pass an existing id to update in place (used for autosave), or omit

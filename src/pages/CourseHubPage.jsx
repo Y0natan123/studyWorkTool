@@ -49,6 +49,7 @@ export default function CourseHubPage({ courseId, onBack }) {
     toggleSyllabusTopic,
     deleteSyllabusTopic,
     deleteCourseEvents,
+    settings,
   } = useStudyStore()
 
   const course = courses.find((c) => c.id === courseId)
@@ -98,9 +99,12 @@ export default function CourseHubPage({ courseId, onBack }) {
 
   const handleDeleteCourseEvents = () => {
     if (allCourseEventsCount === 0) return
+    const calendarNote = settings.syncEnabled
+      ? " האירועים יימחקו גם מ-Google Calendar אם הם סונכרנו."
+      : ""
     if (
       confirm(
-        `למחוק את כל ${allCourseEventsCount} האירועים של ${course.name} ממערכת השעות? לא ניתן לבטל פעולה זו.`
+        `למחוק את כל ${allCourseEventsCount} האירועים של ${course.name} ממערכת השעות?${calendarNote} לא ניתן לבטל פעולה זו.`
       )
     ) {
       deleteCourseEvents(courseId)
