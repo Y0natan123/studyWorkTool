@@ -246,6 +246,30 @@ export function StudyStoreProvider({ children }) {
     [setEvents, syncUrl]
   )
 
+  // Removes every schedule event (all courses, all dates) and the matching Google
+  // Calendar entries — a full schedule wipe, e.g. to clean up after repeated test
+  // imports. Courses, tasks and everything else are left untouched.
+  const deleteAllEvents = useCallback(() => {
+    let calendarEventIds = []
+    setEvents((prev) => {
+      calendarEventIds = prev.filter((e) => e.calendarEventId).map((e) => e.calendarEventId)
+      return []
+    })
+
+    if (syncUrl && calendarEventIds.length > 0) {
+      setCalendarPushStatus("pushing")
+      Promise.all(calendarEventIds.map((id) => sheetsSync.deleteCalendarEvent(syncUrl, id)))
+        .then(() => {
+          setCalendarPushStatus("pushed")
+          setCalendarPushError(null)
+        })
+        .catch((err) => {
+          setCalendarPushStatus("error")
+          setCalendarPushError(err.message)
+        })
+    }
+  }, [setEvents, syncUrl])
+
   // Upserts by note.id: pass an existing id to update in place (used for autosave), or omit
   // id to create a new note. Returns the note's id either way.
   const upsertCourseNote = useCallback(
@@ -587,6 +611,7 @@ export function StudyStoreProvider({ children }) {
       updateCourse,
       deleteCourse,
       deleteCourseEvents,
+      deleteAllEvents,
       upsertCourseNote,
       deleteCourseNote,
       addResourceLink,
@@ -631,6 +656,7 @@ export function StudyStoreProvider({ children }) {
       updateCourse,
       deleteCourse,
       deleteCourseEvents,
+      deleteAllEvents,
       upsertCourseNote,
       deleteCourseNote,
       addResourceLink,

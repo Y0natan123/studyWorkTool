@@ -17,6 +17,7 @@ import {
   Send,
   CalendarPlus,
   Search,
+  CalendarX,
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -45,6 +46,7 @@ export default function SettingsPage() {
     addTask,
     addSyllabusTopic,
     upsertCourseNote,
+    deleteAllEvents,
     exportData,
     importData,
     resetAllData,
@@ -746,6 +748,26 @@ export default function SettingsPage() {
             <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setIcsImportOpen(true)}>
               <CalendarPlus className="h-4 w-4" />
               ייבוא מיומן (.ics)
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5 text-destructive hover:text-destructive"
+              onClick={() => {
+                const calendarNote = settings.syncEnabled
+                  ? " האירועים יימחקו גם מ-Google Calendar אם הם סונכרנו."
+                  : ""
+                if (
+                  confirm(
+                    `למחוק את כל ${events.length} האירועים ממערכת השעות (כל הקורסים, כל התאריכים)?${calendarNote} הקורסים והמשימות שלכם לא יימחקו. לא ניתן לבטל פעולה זו.`
+                  )
+                ) {
+                  deleteAllEvents()
+                }
+              }}
+            >
+              <CalendarX className="h-4 w-4" />
+              מחק את כל האירועים ({events.length})
             </Button>
             <Button
               variant="outline"
