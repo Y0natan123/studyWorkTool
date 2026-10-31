@@ -10,6 +10,7 @@ import {
   ListChecks,
   StickyNote,
   BellRing,
+  CalendarX,
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -47,6 +48,7 @@ export default function CourseHubPage({ courseId, onBack }) {
     addSyllabusTopic,
     toggleSyllabusTopic,
     deleteSyllabusTopic,
+    deleteCourseEvents,
   } = useStudyStore()
 
   const course = courses.find((c) => c.id === courseId)
@@ -91,7 +93,19 @@ export default function CourseHubPage({ courseId, onBack }) {
   const courseEvents = events
     .filter((e) => e.courseId === courseId && new Date(e.start).getTime() > Date.now())
     .sort((a, b) => new Date(a.start) - new Date(b.start))
+  const allCourseEventsCount = events.filter((e) => e.courseId === courseId).length
   const courseAlarms = alarms.filter((a) => a.courseId === courseId)
+
+  const handleDeleteCourseEvents = () => {
+    if (allCourseEventsCount === 0) return
+    if (
+      confirm(
+        `למחוק את כל ${allCourseEventsCount} האירועים של ${course.name} ממערכת השעות? לא ניתן לבטל פעולה זו.`
+      )
+    ) {
+      deleteCourseEvents(courseId)
+    }
+  }
 
   const handleAddLink = (e) => {
     e.preventDefault()
@@ -152,13 +166,24 @@ export default function CourseHubPage({ courseId, onBack }) {
           {/* RTL: "back" visually points right */}
           <ArrowRight className="h-4 w-4" />
         </Button>
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <Badge variant={course.color}>{course.code}</Badge>
             <h2 className="truncate text-lg font-semibold">{course.name}</h2>
           </div>
           <p className="text-xs text-muted-foreground">{course.credits} נק״ז</p>
         </div>
+        {allCourseEventsCount > 0 && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="shrink-0 gap-1.5 text-muted-foreground hover:text-destructive"
+            onClick={handleDeleteCourseEvents}
+          >
+            <CalendarX className="h-3.5 w-3.5" />
+            מחק אירועים ({allCourseEventsCount})
+          </Button>
+        )}
       </div>
 
       {/* Progress & Metrics */}

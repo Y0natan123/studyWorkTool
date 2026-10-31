@@ -30,6 +30,7 @@ import * as sheetsSync from "@/lib/sheetsSync"
 import { buildIcs, downloadIcs } from "@/lib/ics"
 import IcsImportModal from "@/components/shared/IcsImportModal"
 import * as sapCatalog from "@/lib/sapCatalog"
+import { HOMEWORK_TEMPLATES } from "@/data/homeworkTemplates"
 
 export default function SettingsPage() {
   const {
@@ -41,6 +42,7 @@ export default function SettingsPage() {
     updateCourse,
     deleteCourse,
     addEvent,
+    addTask,
     addSyllabusTopic,
     upsertCourseNote,
     exportData,
@@ -129,6 +131,18 @@ export default function SettingsPage() {
           contentMarkdown: infoLines.join("\n\n"),
         })
       }
+
+      const homeworkTemplate = HOMEWORK_TEMPLATES[courseCode] || []
+      homeworkTemplate.forEach((hw) => {
+        addTask({
+          title: hw.title,
+          courseId,
+          status: "todo",
+          priority: "medium",
+          dueDate: new Date(`${hw.dueDate}T23:59:00`).toISOString(),
+          estimateMinutes: null,
+        })
+      })
     }
 
     const semesterStart = new Date(sapSemester.start)

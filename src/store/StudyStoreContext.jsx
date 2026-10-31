@@ -218,6 +218,15 @@ export function StudyStoreProvider({ children }) {
     [setCourses, setEvents, setTasks]
   )
 
+  // Removes all schedule events tied to a course (e.g. duplicates from re-importing a
+  // SAP schedule) without touching the course itself or its tasks.
+  const deleteCourseEvents = useCallback(
+    (courseId) => {
+      setEvents((prev) => prev.filter((e) => e.courseId !== courseId))
+    },
+    [setEvents]
+  )
+
   // Upserts by note.id: pass an existing id to update in place (used for autosave), or omit
   // id to create a new note. Returns the note's id either way.
   const upsertCourseNote = useCallback(
@@ -558,6 +567,7 @@ export function StudyStoreProvider({ children }) {
       addCourse,
       updateCourse,
       deleteCourse,
+      deleteCourseEvents,
       upsertCourseNote,
       deleteCourseNote,
       addResourceLink,
@@ -601,6 +611,7 @@ export function StudyStoreProvider({ children }) {
       addCourse,
       updateCourse,
       deleteCourse,
+      deleteCourseEvents,
       upsertCourseNote,
       deleteCourseNote,
       addResourceLink,
