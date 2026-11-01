@@ -11,6 +11,7 @@ import {
   StickyNote,
   BellRing,
   CalendarX,
+  Download,
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -29,6 +30,7 @@ import {
 import { cn } from "@/lib/utils"
 import { RESOURCE_LINK_CATEGORIES } from "@/lib/constants"
 import { useStudyStore } from "@/store/StudyStoreContext"
+import { HOMEWORK_TEMPLATES } from "@/data/homeworkTemplates"
 
 const CATEGORY_ORDER = ["moodle", "drive", "recordings", "general"]
 
@@ -50,6 +52,7 @@ export default function CourseHubPage({ courseId, onBack }) {
     deleteSyllabusTopic,
     deleteCourseEvents,
     settings,
+    addTask,
   } = useStudyStore()
 
   const course = courses.find((c) => c.id === courseId)
@@ -109,6 +112,27 @@ export default function CourseHubPage({ courseId, onBack }) {
     ) {
       deleteCourseEvents(courseId)
     }
+  }
+
+  const homeworkTemplate = HOMEWORK_TEMPLATES[course.code] || []
+  const handleLoadHomeworkTemplate = () => {
+    const existingTitles = new Set(courseTasks.map((t) => t.title))
+    const newItems = homeworkTemplate.filter((hw) => !existingTitles.has(hw.title))
+    if (newItems.length === 0) {
+      alert("כל המטלות מהתבנית כבר קיימות בלוח המשימות של הקורס.")
+      return
+    }
+    if (!confirm(`לטעון ${newItems.length} מטלות מהתבנית של ${course.name} ללוח המשימות?`)) return
+    newItems.forEach((hw) => {
+      addTask({
+        title: hw.title,
+        courseId,
+        status: "todo",
+        priority: "medium",
+        dueDate: new Date(`${hw.dueDate}T23:59:00`).toISOString(),
+        estimateMinutes: null,
+      })
+    })
   }
 
   const handleAddLink = (e) => {
@@ -177,6 +201,17 @@ export default function CourseHubPage({ courseId, onBack }) {
           </div>
           <p className="text-xs text-muted-foreground">{course.credits} נק״ז</p>
         </div>
+        {homeworkTemplate.length > 0 && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="shrink-0 gap-1.5"
+            onClick={handleLoadHomeworkTemplate}
+          >
+            <Download className="h-3.5 w-3.5" />
+            טען מטלות מהתבנית
+          </Button>
+        )}
         {allCourseEventsCount > 0 && (
           <Button
             variant="outline"
