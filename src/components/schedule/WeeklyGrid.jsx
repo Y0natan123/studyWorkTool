@@ -98,6 +98,17 @@ export default function WeeklyGrid({
     return map
   }, [courses])
 
+  // Google Calendar events that this app itself created and already shows as a
+  // local event (tracked via calendarEventId) are hidden here — otherwise every
+  // synced event renders twice: once as the local block, once as the "external"
+  // Google block pulled back from Calendar.
+  const externalGoogleEvents = useMemo(() => {
+    const ownedCalendarIds = new Set(
+      events.filter((e) => e.calendarEventId).map((e) => e.calendarEventId)
+    )
+    return googleCalendarEvents.filter((e) => !ownedCalendarIds.has(e.calendarEventId))
+  }, [googleCalendarEvents, events])
+
   const days = useMemo(() => {
     if (singleDay) {
       const d = new Date(dayAnchor || new Date())
@@ -311,7 +322,7 @@ export default function WeeklyGrid({
             return s.toDateString() === day.toDateString() && e.type !== "assignment"
           })
 
-          const dayGoogleEvents = googleCalendarEvents.filter((e) => {
+          const dayGoogleEvents = externalGoogleEvents.filter((e) => {
             const s = new Date(e.startISO)
             return s.toDateString() === day.toDateString()
           })

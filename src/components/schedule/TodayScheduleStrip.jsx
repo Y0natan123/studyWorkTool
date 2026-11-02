@@ -22,7 +22,11 @@ export default function TodayScheduleStrip({
     .filter((e) => new Date(e.start).toDateString() === todayStr)
     .map((e) => ({ ...e, kind: "app" }))
 
+  // Hide Google Calendar events that this app itself created (tracked via
+  // calendarEventId on the local event) — otherwise a synced event shows up twice.
+  const ownedCalendarIds = new Set(events.filter((e) => e.calendarEventId).map((e) => e.calendarEventId))
   const todaysGoogleEvents = googleCalendarEvents
+    .filter((e) => !ownedCalendarIds.has(e.calendarEventId))
     .filter((e) => new Date(e.startISO).toDateString() === todayStr)
     .map((e) => ({
       id: e.calendarEventId,
