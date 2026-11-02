@@ -5,10 +5,26 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@
 import { useStudyStore } from "@/store/StudyStoreContext"
 
 const COLUMNS = [
-  { status: "todo", title: "לביצוע", accentClass: "bg-sky-tag" },
-  { status: "in-progress", title: "בתהליך", accentClass: "bg-amber-tag" },
-  { status: "done", title: "הושלם", accentClass: "bg-emerald-tag" },
+  { status: "todo", title: "לביצוע", accentClass: "bg-sky-tag", perCourseLimit: 2 },
+  { status: "in-progress", title: "בתהליך", accentClass: "bg-amber-tag", perCourseLimit: 1 },
+  { status: "done", title: "הושלם", accentClass: "bg-emerald-tag", perCourseLimit: null },
 ]
+
+// Caps how many tasks from the same course show in one column (soonest due date
+// first), so a course with a large loaded homework template doesn't flood the
+// board — the rest stay hidden until earlier tasks move out of this column.
+function capPerCourse(tasks, limit) {
+  if (limit == null) return tasks
+  const sorted = [...tasks].sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate))
+  const countByCourse = {}
+  return sorted.filter((t) => {
+    const key = t.courseId || "none"
+    const count = countByCourse[key] || 0
+    if (count >= limit) return false
+    countByCourse[key] = count + 1
+    return true
+  })
+}
 
 export default function TaskBoardPage() {
   const { tasks, courses, updateTask, deleteTask } = useStudyStore()
@@ -54,18 +70,23 @@ export default function TaskBoardPage() {
       </div>
 
       <div className="flex flex-col gap-4 md:flex-row">
-        {COLUMNS.map((col) => (
-          <TaskColumn
-            key={col.status}
-            title={col.title}
-            status={col.status}
-            accentClass={col.accentClass}
-            tasks={filteredTasks.filter((t) => t.status === col.status)}
-            courseById={courseById}
-            onDrop={handleDrop}
-            onDelete={deleteTask}
-          />
-        ))}
+        {COLUMNS.map((col) => {
+          const columnTasks = filteredTasks.filter((t) => t.status === col.status)
+          const visibleTasks = capPerCourse(columnTasks, col.perCourseLimit)
+          return (
+            <TaskColumn
+              key={col.status}
+              title={col.title}
+              status={col.status}
+              accentClass={col.accentClass}
+              tasks={visibleTasks}
+              hiddenCount={columnTasks.length - visibleTasks.length}
+              courseById={courseById}
+              onDrop={handleDrop}
+              onDelete={deleteTask}
+            />
+          )
+        })}
       </div>
     </motion.div>
   )

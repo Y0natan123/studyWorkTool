@@ -3,7 +3,16 @@ import { AnimatePresence } from "framer-motion"
 import TaskCard from "@/components/tasks/TaskCard"
 import { cn } from "@/lib/utils"
 
-export default function TaskColumn({ title, status, tasks, courseById, onDrop, onDelete, accentClass }) {
+export default function TaskColumn({
+  title,
+  status,
+  tasks,
+  hiddenCount = 0,
+  courseById,
+  onDrop,
+  onDelete,
+  accentClass,
+}) {
   const [isOver, setIsOver] = useState(false)
 
   const handleDragOver = (e) => {
@@ -53,6 +62,11 @@ export default function TaskColumn({ title, status, tasks, courseById, onDrop, o
         </AnimatePresence>
         {tasks.length === 0 && (
           <p className="py-6 text-center text-xs text-muted-foreground">גררו משימות לכאן</p>
+        )}
+        {hiddenCount > 0 && (
+          <p className="py-1 text-center text-[11px] text-muted-foreground">
+            עוד {hiddenCount} משימות ממתינות, יוצגו כשהמקום יתפנה
+          </p>
         )}
       </div>
     </div>

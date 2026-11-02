@@ -115,7 +115,6 @@ export default function CourseHubPage({ courseId, onBack }) {
     }
   }
 
-  const HOMEWORK_BATCH_SIZE = 2
   const homeworkTemplate = [...(HOMEWORK_TEMPLATES[course.code] || [])].sort(
     (a, b) => new Date(a.dueDate) - new Date(b.dueDate)
   )
@@ -130,16 +129,9 @@ export default function CourseHubPage({ courseId, onBack }) {
       alert("כל המטלות מהתבנית כבר נטענו ללוח המשימות של הקורס.")
       return
     }
-    const nextBatch = notYetLoaded.slice(0, HOMEWORK_BATCH_SIZE)
-    if (
-      !confirm(
-        `לטעון את ${nextBatch.length} המטלות הקרובות הבאות של ${course.name} (${nextBatch
-          .map((hw) => hw.title)
-          .join(", ")})?`
-      )
-    )
+    if (!confirm(`לטעון ${notYetLoaded.length} מטלות מהתבנית של ${course.name} ללוח המשימות וליומן?`))
       return
-    nextBatch.forEach((hw) => {
+    notYetLoaded.forEach((hw) => {
       const dueDate = new Date(`${hw.dueDate}T23:59:00`).toISOString()
       addTask({
         title: hw.title,
@@ -233,7 +225,7 @@ export default function CourseHubPage({ courseId, onBack }) {
             onClick={handleLoadHomeworkTemplate}
           >
             <Download className="h-3.5 w-3.5" />
-            טען {Math.min(HOMEWORK_BATCH_SIZE, homeworkTemplateRemainingCount)} מטלות הבאות
+            טען {homeworkTemplateRemainingCount} מטלות מהתבנית
           </Button>
         )}
         {allCourseEventsCount > 0 && (
