@@ -3,11 +3,40 @@ import { motion } from "framer-motion"
 import { Card, CardContent } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
 import { Badge } from "@/components/ui/badge"
-import { ChevronLeft } from "lucide-react"
+import { ChevronLeft, AlertCircle, Clock } from "lucide-react"
+import { cn } from "@/lib/utils"
 import { useStudyStore } from "@/store/StudyStoreContext"
 
+const DAY_MS = 24 * 3600 * 1000
+
+// Finds this course's soonest not-done task and describes how urgent it is.
+function nextDeadlineInfo(courseId, tasks, now) {
+  const upcoming = tasks
+    .filter((t) => t.courseId === courseId && t.status !== "done")
+    .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate))
+  const next = upcoming[0]
+  if (!next) return null
+
+  const daysLeft = Math.ceil((new Date(next.dueDate).getTime() - now) / DAY_MS)
+  let label
+  if (daysLeft < 0) label = "באיחור"
+  else if (daysLeft === 0) label = "היום"
+  else if (daysLeft === 1) label = "מחר"
+  else label = `בעוד ${daysLeft} ימים`
+
+  const urgency = daysLeft <= 1 ? "urgent" : daysLeft <= 4 ? "soon" : "later"
+  return { title: next.title, label, urgency }
+}
+
+const URGENCY_CLASSES = {
+  urgent: "text-destructive",
+  soon: "text-amber-600 dark:text-amber-400",
+  later: "text-muted-foreground",
+}
+
 export default function CoursesListPage({ onOpenCourse }) {
-  const { courses } = useStudyStore()
+  const { courses, tasks } = useStudyStore()
+  const now = Date.now()
 
   return (
     <motion.div
@@ -31,6 +60,7 @@ export default function CoursesListPage({ onOpenCourse }) {
             const pct = course.assignmentsTotal
               ? Math.round((course.assignmentsDone / course.assignmentsTotal) * 100)
               : 0
+            const deadline = nextDeadlineInfo(course.id, tasks, now)
             return (
               <button
                 key={course.id}
@@ -56,6 +86,23 @@ export default function CoursesListPage({ onOpenCourse }) {
                       </div>
                       <Progress value={pct} className="h-1.5" />
                     </div>
+                    {deadline && (
+                      <div
+                        className={cn(
+                          "flex items-center gap-1.5 text-xs font-medium",
+                          URGENCY_CLASSES[deadline.urgency]
+                        )}
+                      >
+                        {deadline.urgency === "urgent" ? (
+                          <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                        ) : (
+                          <Clock className="h-3.5 w-3.5 shrink-0" />
+                        )}
+                        <span className="truncate">
+                          {deadline.title} — {deadline.label}
+                        </span>
+                      </div>
+                    )}
                     <p className="text-xs text-muted-foreground">{course.weeklyHours} שעות שבועיות</p>
                   </CardContent>
                 </Card>

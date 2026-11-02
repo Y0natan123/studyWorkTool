@@ -53,6 +53,7 @@ export default function CourseHubPage({ courseId, onBack }) {
     deleteCourseEvents,
     settings,
     addTask,
+    addEvent,
   } = useStudyStore()
 
   const course = courses.find((c) => c.id === courseId)
@@ -114,23 +115,46 @@ export default function CourseHubPage({ courseId, onBack }) {
     }
   }
 
-  const homeworkTemplate = HOMEWORK_TEMPLATES[course.code] || []
+  const HOMEWORK_BATCH_SIZE = 2
+  const homeworkTemplate = [...(HOMEWORK_TEMPLATES[course.code] || [])].sort(
+    (a, b) => new Date(a.dueDate) - new Date(b.dueDate)
+  )
+  const homeworkExistingTitles = new Set(courseTasks.map((t) => t.title))
+  const homeworkTemplateRemainingCount = homeworkTemplate.filter(
+    (hw) => !homeworkExistingTitles.has(hw.title)
+  ).length
+
   const handleLoadHomeworkTemplate = () => {
-    const existingTitles = new Set(courseTasks.map((t) => t.title))
-    const newItems = homeworkTemplate.filter((hw) => !existingTitles.has(hw.title))
-    if (newItems.length === 0) {
-      alert("כל המטלות מהתבנית כבר קיימות בלוח המשימות של הקורס.")
+    const notYetLoaded = homeworkTemplate.filter((hw) => !homeworkExistingTitles.has(hw.title))
+    if (notYetLoaded.length === 0) {
+      alert("כל המטלות מהתבנית כבר נטענו ללוח המשימות של הקורס.")
       return
     }
-    if (!confirm(`לטעון ${newItems.length} מטלות מהתבנית של ${course.name} ללוח המשימות?`)) return
-    newItems.forEach((hw) => {
+    const nextBatch = notYetLoaded.slice(0, HOMEWORK_BATCH_SIZE)
+    if (
+      !confirm(
+        `לטעון את ${nextBatch.length} המטלות הקרובות הבאות של ${course.name} (${nextBatch
+          .map((hw) => hw.title)
+          .join(", ")})?`
+      )
+    )
+      return
+    nextBatch.forEach((hw) => {
+      const dueDate = new Date(`${hw.dueDate}T23:59:00`).toISOString()
       addTask({
         title: hw.title,
         courseId,
         status: "todo",
         priority: "medium",
-        dueDate: new Date(`${hw.dueDate}T23:59:00`).toISOString(),
+        dueDate,
         estimateMinutes: null,
+      })
+      addEvent({
+        title: hw.title,
+        courseId,
+        type: "assignment",
+        start: dueDate,
+        end: dueDate,
       })
     })
   }
@@ -201,7 +225,7 @@ export default function CourseHubPage({ courseId, onBack }) {
           </div>
           <p className="text-xs text-muted-foreground">{course.credits} נק״ז</p>
         </div>
-        {homeworkTemplate.length > 0 && (
+        {homeworkTemplateRemainingCount > 0 && (
           <Button
             variant="outline"
             size="sm"
@@ -209,7 +233,7 @@ export default function CourseHubPage({ courseId, onBack }) {
             onClick={handleLoadHomeworkTemplate}
           >
             <Download className="h-3.5 w-3.5" />
-            טען מטלות מהתבנית
+            טען {Math.min(HOMEWORK_BATCH_SIZE, homeworkTemplateRemainingCount)} מטלות הבאות
           </Button>
         )}
         {allCourseEventsCount > 0 && (
