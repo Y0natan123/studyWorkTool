@@ -66,6 +66,53 @@ function offsetYToTime(day, offsetY, dayStartHour, hourHeight) {
   return d
 }
 
+// Lays out same-day events like Google Calendar: events that overlap in time sit
+// side by side (each shrunk to fit), non-overlapping events each take the full
+// width. `getRange(event)` returns { start, end } as Date objects for sorting/
+// overlap checks — callers may pass live drag-preview times instead of ev.start/end.
+function layoutOverlappingEvents(dayEvents, getRange) {
+  const sorted = [...dayEvents].sort((a, b) => getRange(a).start - getRange(b).start)
+  const layout = new Map() // event -> { lane, laneCount }
+
+  let cluster = [] // events in the current overlap cluster
+  let clusterEnd = null
+
+  const flushCluster = () => {
+    if (cluster.length === 0) return
+    // Greedy lane assignment within the cluster: each event takes the first lane
+    // whose previous occupant has already ended.
+    const laneEnds = [] // end time currently occupying each lane
+    const eventLane = new Map()
+    cluster.forEach((ev) => {
+      const { start, end } = getRange(ev)
+      let lane = laneEnds.findIndex((laneEnd) => laneEnd <= start)
+      if (lane === -1) {
+        lane = laneEnds.length
+        laneEnds.push(end)
+      } else {
+        laneEnds[lane] = end
+      }
+      eventLane.set(ev, lane)
+    })
+    const laneCount = laneEnds.length
+    cluster.forEach((ev) => layout.set(ev, { lane: eventLane.get(ev), laneCount }))
+    cluster = []
+    clusterEnd = null
+  }
+
+  sorted.forEach((ev) => {
+    const { start, end } = getRange(ev)
+    if (clusterEnd !== null && start >= clusterEnd) {
+      flushCluster()
+    }
+    cluster.push(ev)
+    clusterEnd = clusterEnd === null ? end : new Date(Math.max(clusterEnd, end))
+  })
+  flushCluster()
+
+  return layout
+}
+
 export default function WeeklyGrid({
   events,
   courses,
@@ -322,6 +369,14 @@ export default function WeeklyGrid({
             return s.toDateString() === day.toDateString() && e.type !== "assignment"
           })
 
+          const dayEventsLayout = layoutOverlappingEvents(dayEvents, (ev) => {
+            const isDragging = drag?.eventId === ev.id
+            return {
+              start: isDragging && drag.previewStart ? drag.previewStart : new Date(ev.start),
+              end: isDragging && drag.previewEnd ? drag.previewEnd : new Date(ev.end),
+            }
+          })
+
           const dayGoogleEvents = externalGoogleEvents.filter((e) => {
             const s = new Date(e.startISO)
             return s.toDateString() === day.toDateString()
@@ -424,15 +479,21 @@ export default function WeeklyGrid({
                 const end = isDragging && drag.previewEnd ? drag.previewEnd : new Date(ev.end)
                 const info = EVENT_TYPES[ev.type]
                 const tag = COURSE_TAG_CLASSES[courseById[ev.courseId]?.color || info.color]
+                const { lane, laneCount } = dayEventsLayout.get(ev) || { lane: 0, laneCount: 1 }
+                const laneWidthPct = 100 / laneCount
+                const GAP_PX = 2
                 return (
                   <div
                     key={ev.id}
                     style={{
                       top: topOffset(start, dayStartHour, hourHeight),
                       height: blockHeight(start, end, hourHeight),
+                      left: `calc(${lane * laneWidthPct}% + ${GAP_PX / 2}px)`,
+                      width: `calc(${laneWidthPct}% - ${GAP_PX}px)`,
+                      zIndex: isDragging ? 30 : lane + 1,
                     }}
                     className={cn(
-                      "group absolute left-0.5 right-0.5 overflow-hidden rounded-md border shadow-sm",
+                      "group absolute overflow-hidden rounded-md border shadow-sm",
                       compact ? "px-1 py-0.5" : "px-1.5 py-1",
                       tag.bg,
                       tag.border,
