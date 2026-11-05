@@ -111,7 +111,12 @@ export default function CourseHubPage({ courseId, onBack }) {
         `למחוק את כל ${allCourseEventsCount} האירועים של ${course.name} ממערכת השעות?${calendarNote} לא ניתן לבטל פעולה זו.`
       )
     ) {
-      deleteCourseEvents(courseId)
+      const { pendingCount } = deleteCourseEvents(courseId)
+      if (pendingCount > 0) {
+        alert(
+          `${pendingCount} אירועים עדיין בתהליך סנכרון ל-Google Calendar ולא נמחקו — נסו שוב בעוד רגע.`
+        )
+      }
     }
   }
 

@@ -36,6 +36,19 @@ export function StudyStoreProvider({ children }) {
   const hasPulledRef = useRef(false)
   const readyToPushRef = useRef(false)
 
+  // Apps Script serializes executions per user — firing many Calendar create/update/
+  // delete calls at once (e.g. importing a semester's worth of SAP sessions) causes
+  // timeouts, and a client-side timeout doesn't mean the server-side call didn't still
+  // go through, which is how duplicate Calendar events happen. This queue runs Calendar
+  // pushes one at a time instead of all in parallel.
+  const calendarQueueRef = useRef(Promise.resolve())
+  const queueCalendarCall = useCallback((fn) => {
+    const next = calendarQueueRef.current.then(fn, fn)
+    // swallow so one failed call doesn't poison the chain for later calls
+    calendarQueueRef.current = next.catch(() => {})
+    return next
+  }, [])
+
   const [googleCalendarEvents, setGoogleCalendarEvents] = useState([])
   const [calendarSyncStatus, setCalendarSyncStatus] = useState("idle") // idle | loading | loaded | error
   // Tracks the last create/update/delete push to Google Calendar (distinct from
@@ -218,57 +231,63 @@ export function StudyStoreProvider({ children }) {
     [setCourses, setEvents, setTasks]
   )
 
-  // Removes all schedule events tied to a course (e.g. duplicates from re-importing a
-  // SAP schedule) without touching the course itself or its tasks.
-  const deleteCourseEvents = useCallback(
-    (courseId) => {
-      let calendarEventIds = []
-      setEvents((prev) => {
-        calendarEventIds = prev
-          .filter((e) => e.courseId === courseId && e.calendarEventId)
-          .map((e) => e.calendarEventId)
-        return prev.filter((e) => e.courseId !== courseId)
-      })
-
-      if (syncUrl && calendarEventIds.length > 0) {
-        setCalendarPushStatus("pushing")
-        Promise.all(calendarEventIds.map((id) => sheetsSync.deleteCalendarEvent(syncUrl, id)))
-          .then(() => {
-            setCalendarPushStatus("pushed")
-            setCalendarPushError(null)
-          })
-          .catch((err) => {
-            setCalendarPushStatus("error")
-            setCalendarPushError(err.message)
-          })
+  // Deletes a batch of Google Calendar events by id, tolerating individual failures
+  // (unlike Promise.all, one bad id doesn't abort the rest) and reports how many
+  // actually succeeded so callers can surface partial failures instead of a single
+  // opaque error.
+  const deleteCalendarEventsBatch = useCallback(
+    async (calendarEventIds) => {
+      if (!syncUrl || calendarEventIds.length === 0) return
+      setCalendarPushStatus("pushing")
+      const results = await Promise.allSettled(
+        calendarEventIds.map((id) => queueCalendarCall(() => sheetsSync.deleteCalendarEvent(syncUrl, id)))
+      )
+      const failures = results.filter((r) => r.status === "rejected")
+      if (failures.length === 0) {
+        setCalendarPushStatus("pushed")
+        setCalendarPushError(null)
+      } else {
+        setCalendarPushStatus("error")
+        setCalendarPushError(
+          `${failures.length}/${calendarEventIds.length} מחיקות מהיומן נכשלו: ${failures[0].reason?.message || failures[0].reason}`
+        )
       }
     },
-    [setEvents, syncUrl]
+    [syncUrl, queueCalendarCall]
+  )
+
+  // Removes all schedule events tied to a course (e.g. duplicates from re-importing a
+  // SAP schedule) without touching the course itself or its tasks. Events whose
+  // Calendar push is still in flight (no calendarEventId yet) are excluded from local
+  // deletion too, so a later create-response can't resurrect/orphan them — callers
+  // should warn the user to retry shortly if any are pending.
+  const deleteCourseEvents = useCallback(
+    (courseId) => {
+      const toDelete = events.filter((e) => e.courseId === courseId)
+      const pendingCount = toDelete.filter((e) => syncUrl && !e.calendarEventId).length
+      const deletableIds = new Set(toDelete.filter((e) => !(syncUrl && !e.calendarEventId)).map((e) => e.id))
+      const calendarEventIds = toDelete.filter((e) => e.calendarEventId).map((e) => e.calendarEventId)
+
+      setEvents((prev) => prev.filter((e) => !deletableIds.has(e.id)))
+      deleteCalendarEventsBatch(calendarEventIds)
+      return { pendingCount }
+    },
+    [events, setEvents, syncUrl, deleteCalendarEventsBatch]
   )
 
   // Removes every schedule event (all courses, all dates) and the matching Google
   // Calendar entries — a full schedule wipe, e.g. to clean up after repeated test
-  // imports. Courses, tasks and everything else are left untouched.
+  // imports. Courses, tasks and everything else are left untouched. Same in-flight
+  // guard as deleteCourseEvents.
   const deleteAllEvents = useCallback(() => {
-    let calendarEventIds = []
-    setEvents((prev) => {
-      calendarEventIds = prev.filter((e) => e.calendarEventId).map((e) => e.calendarEventId)
-      return []
-    })
+    const pendingCount = events.filter((e) => syncUrl && !e.calendarEventId).length
+    const deletableIds = new Set(events.filter((e) => !(syncUrl && !e.calendarEventId)).map((e) => e.id))
+    const calendarEventIds = events.filter((e) => e.calendarEventId).map((e) => e.calendarEventId)
 
-    if (syncUrl && calendarEventIds.length > 0) {
-      setCalendarPushStatus("pushing")
-      Promise.all(calendarEventIds.map((id) => sheetsSync.deleteCalendarEvent(syncUrl, id)))
-        .then(() => {
-          setCalendarPushStatus("pushed")
-          setCalendarPushError(null)
-        })
-        .catch((err) => {
-          setCalendarPushStatus("error")
-          setCalendarPushError(err.message)
-        })
-    }
-  }, [setEvents, syncUrl])
+    setEvents((prev) => prev.filter((e) => !deletableIds.has(e.id)))
+    deleteCalendarEventsBatch(calendarEventIds)
+    return { pendingCount }
+  }, [events, setEvents, syncUrl, deleteCalendarEventsBatch])
 
   // Upserts by note.id: pass an existing id to update in place (used for autosave), or omit
   // id to create a new note. Returns the note's id either way.
@@ -435,13 +454,14 @@ export function StudyStoreProvider({ children }) {
 
       if (syncUrl && event.start && event.end) {
         setCalendarPushStatus("pushing")
-        sheetsSync
-          .createCalendarEvent(syncUrl, {
+        queueCalendarCall(() =>
+          sheetsSync.createCalendarEvent(syncUrl, {
             title: event.title,
             startISO: event.start,
             endISO: event.end,
             description: event.description,
           })
+        )
           .then((calendarEventId) => {
             setEvents((prev) => prev.map((e) => (e.id === id ? { ...e, calendarEventId } : e)))
             setCalendarPushStatus("pushed")
@@ -454,29 +474,25 @@ export function StudyStoreProvider({ children }) {
           })
       }
     },
-    [setEvents, syncUrl]
+    [setEvents, syncUrl, queueCalendarCall]
   )
 
   const updateEvent = useCallback(
     (id, patch) => {
-      let calendarEventId = null
-      setEvents((prev) =>
-        prev.map((e) => {
-          if (e.id !== id) return e
-          calendarEventId = e.calendarEventId
-          return { ...e, ...patch }
-        })
-      )
+      const existing = events.find((e) => e.id === id)
+      const calendarEventId = existing?.calendarEventId || null
+      setEvents((prev) => prev.map((e) => (e.id === id ? { ...e, ...patch } : e)))
 
       if (syncUrl && calendarEventId && (patch.title || patch.start || patch.end)) {
         setCalendarPushStatus("pushing")
-        sheetsSync
-          .updateCalendarEvent(syncUrl, {
+        queueCalendarCall(() =>
+          sheetsSync.updateCalendarEvent(syncUrl, {
             calendarEventId,
             title: patch.title,
             startISO: patch.start,
             endISO: patch.end,
           })
+        )
           .then(() => {
             setCalendarPushStatus("pushed")
             setCalendarPushError(null)
@@ -487,23 +503,18 @@ export function StudyStoreProvider({ children }) {
           })
       }
     },
-    [setEvents, syncUrl]
+    [events, setEvents, syncUrl, queueCalendarCall]
   )
 
   const deleteEvent = useCallback(
     (id) => {
-      let calendarEventId = null
-      setEvents((prev) =>
-        prev.filter((e) => {
-          if (e.id === id) calendarEventId = e.calendarEventId
-          return e.id !== id
-        })
-      )
+      const existing = events.find((e) => e.id === id)
+      const calendarEventId = existing?.calendarEventId || null
+      setEvents((prev) => prev.filter((e) => e.id !== id))
 
       if (syncUrl && calendarEventId) {
         setCalendarPushStatus("pushing")
-        sheetsSync
-          .deleteCalendarEvent(syncUrl, calendarEventId)
+        queueCalendarCall(() => sheetsSync.deleteCalendarEvent(syncUrl, calendarEventId))
           .then(() => {
             setCalendarPushStatus("pushed")
             setCalendarPushError(null)
@@ -514,7 +525,7 @@ export function StudyStoreProvider({ children }) {
           })
       }
     },
-    [setEvents, syncUrl]
+    [events, setEvents, syncUrl, queueCalendarCall]
   )
 
   const addTask = useCallback(

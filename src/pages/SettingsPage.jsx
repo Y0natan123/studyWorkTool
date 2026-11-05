@@ -762,7 +762,12 @@ export default function SettingsPage() {
                     `למחוק את כל ${events.length} האירועים ממערכת השעות (כל הקורסים, כל התאריכים)?${calendarNote} הקורסים והמשימות שלכם לא יימחקו. לא ניתן לבטל פעולה זו.`
                   )
                 ) {
-                  deleteAllEvents()
+                  const { pendingCount } = deleteAllEvents()
+                  if (pendingCount > 0) {
+                    alert(
+                      `${pendingCount} אירועים עדיין בתהליך סנכרון ל-Google Calendar ולא נמחקו — נסו שוב בעוד רגע.`
+                    )
+                  }
                 }
               }}
             >
