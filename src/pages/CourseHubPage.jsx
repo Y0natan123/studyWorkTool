@@ -12,6 +12,8 @@ import {
   BellRing,
   CalendarX,
   Download,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -31,6 +33,7 @@ import { cn } from "@/lib/utils"
 import { RESOURCE_LINK_CATEGORIES } from "@/lib/constants"
 import { useStudyStore } from "@/store/StudyStoreContext"
 import { HOMEWORK_TEMPLATES } from "@/data/homeworkTemplates"
+import { COURSE_MOODLE_LINKS } from "@/data/courseLinks"
 
 const CATEGORY_ORDER = ["moodle", "drive", "recordings", "general"]
 
@@ -69,6 +72,7 @@ export default function CourseHubPage({ courseId, onBack }) {
   const [noteBody, setNoteBody] = useState("")
 
   const [topicLabel, setTopicLabel] = useState("")
+  const [homeworkExpanded, setHomeworkExpanded] = useState(false)
 
   const [alarmMessage, setAlarmMessage] = useState("")
   const [alarmEventId, setAlarmEventId] = useState("")
@@ -94,6 +98,8 @@ export default function CourseHubPage({ courseId, onBack }) {
     : 0
 
   const resourceLinks = course.resourceLinks || []
+  const knownMoodleUrl = COURSE_MOODLE_LINKS[course.code]
+  const hasMoodleLink = resourceLinks.some((l) => l.url === knownMoodleUrl)
   const notes = course.notes || []
   const syllabusTopics = course.syllabusTopics || []
   const syllabusDoneCount = syllabusTopics.filter((t) => t.done).length
@@ -248,19 +254,43 @@ export default function CourseHubPage({ courseId, onBack }) {
         )}
       </div>
 
-      {/* All homework for this course — every task, soonest due date first */}
+      {/* All homework for this course — every task, soonest due date first. Starts
+          collapsed to a short scrollable list; expands to show everything. */}
       {courseTasks.length > 0 && (
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-1.5">
-              <ListChecks className="h-4 w-4" />
-              כל שיעורי הבית
-            </CardTitle>
-            <CardDescription>
-              {pendingTasks.length} פתוחות מתוך {courseTasks.length} — ממוין לפי תאריך הגשה
-            </CardDescription>
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <CardTitle className="flex items-center gap-1.5">
+                  <ListChecks className="h-4 w-4" />
+                  כל שיעורי הבית
+                </CardTitle>
+                <CardDescription>
+                  {pendingTasks.length} פתוחות מתוך {courseTasks.length} — ממוין לפי תאריך הגשה
+                </CardDescription>
+              </div>
+              <button
+                onClick={() => setHomeworkExpanded((v) => !v)}
+                className="flex shrink-0 items-center gap-1 rounded-full border border-border px-2.5 py-1 text-xs font-medium text-muted-foreground hover:bg-accent"
+              >
+                {homeworkExpanded ? (
+                  <>
+                    הקטן <ChevronUp className="h-3 w-3" />
+                  </>
+                ) : (
+                  <>
+                    הרחב <ChevronDown className="h-3 w-3" />
+                  </>
+                )}
+              </button>
+            </div>
           </CardHeader>
-          <CardContent className="flex flex-col gap-1">
+          <CardContent
+            className={cn(
+              "flex flex-col gap-1 overflow-y-auto pe-1 transition-[max-height]",
+              homeworkExpanded ? "max-h-[32rem]" : "max-h-[8.5rem]"
+            )}
+          >
             {[...courseTasks]
               .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate))
               .map((t) => {
@@ -356,6 +386,23 @@ export default function CourseHubPage({ courseId, onBack }) {
             <CardDescription>מודל, תיקיות דרייב, הקלטות, וקישורים נוספים.</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
+            {knownMoodleUrl && !hasMoodleLink && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5 self-start"
+                onClick={() =>
+                  addResourceLink(courseId, {
+                    label: "דף הקורס ב-Moodle",
+                    url: knownMoodleUrl,
+                    category: "moodle",
+                  })
+                }
+              >
+                <ExternalLink className="h-3.5 w-3.5" />
+                הוסף קישור ל-Moodle של הקורס
+              </Button>
+            )}
             {CATEGORY_ORDER.map((cat) => {
               const items = resourceLinks.filter((l) => l.category === cat)
               if (items.length === 0) return null

@@ -121,6 +121,7 @@ export default function WeeklyGrid({
   googleCalendarEvents = [],
   onSlotClick,
   onEventChange,
+  onEventClick,
   singleDay = false,
   dayAnchor,
   compact = false,
@@ -194,6 +195,7 @@ export default function WeeklyGrid({
     e.stopPropagation()
     setDrag({
       eventId: ev.id,
+      event: ev,
       mode: "move",
       originalStart: new Date(ev.start),
       originalEnd: new Date(ev.end),
@@ -236,8 +238,13 @@ export default function WeeklyGrid({
     if (!drag) return
     const finalStart = drag.previewStart || drag.originalStart
     const finalEnd = drag.previewEnd || drag.originalEnd
-    if (finalStart.getTime() !== drag.originalStart.getTime() || finalEnd.getTime() !== drag.originalEnd.getTime()) {
+    const moved =
+      finalStart.getTime() !== drag.originalStart.getTime() || finalEnd.getTime() !== drag.originalEnd.getTime()
+    if (moved) {
       onEventChange?.(drag.eventId, { start: finalStart.toISOString(), end: finalEnd.toISOString() })
+    } else if (drag.mode === "move" && drag.event) {
+      // No movement happened — this was a click/tap, not a drag. Offer the event menu instead.
+      onEventClick?.(drag.event)
     }
     setDrag(null)
   }

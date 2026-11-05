@@ -7,6 +7,7 @@ import MiniCalendar from "@/components/schedule/MiniCalendar"
 import UpcomingFocus from "@/components/schedule/UpcomingFocus"
 import CategoryFilters from "@/components/schedule/CategoryFilters"
 import WeeklyGrid from "@/components/schedule/WeeklyGrid"
+import MoveSeriesModal from "@/components/schedule/MoveSeriesModal"
 import QuickCreateModal, { toLocalDatetimeInputValue } from "@/components/shared/QuickCreateModal"
 import { useStudyStore } from "@/store/StudyStoreContext"
 import { useIsMobile } from "@/hooks/useIsMobile"
@@ -22,6 +23,7 @@ export default function SchedulePage() {
     events,
     courses,
     updateEvent,
+    moveRecurringSeries,
     settings,
     googleCalendarEvents,
     pullGoogleCalendarEvents,
@@ -31,6 +33,7 @@ export default function SchedulePage() {
   const [weekAnchor, setWeekAnchor] = useState(new Date())
   const [activeFilters, setActiveFilters] = useState(ALL_TYPES)
   const [slotModalDate, setSlotModalDate] = useState(null)
+  const [moveSeriesEvent, setMoveSeriesEvent] = useState(null)
   const [viewMode, setViewMode] = useState("week") // "week" | "day" — desktop only; mobile always shows day
   const touchStartX = useRef(null)
   const showDayView = isMobile || viewMode === "day"
@@ -247,8 +250,22 @@ export default function SchedulePage() {
             googleCalendarEvents={googleCalendarEvents}
             onSlotClick={(date) => setSlotModalDate(date)}
             onEventChange={(id, patch) => updateEvent(id, patch)}
+            onEventClick={(ev) => setMoveSeriesEvent(ev)}
           />
         </div>
+
+        <MoveSeriesModal
+          open={!!moveSeriesEvent}
+          onOpenChange={(open) => !open && setMoveSeriesEvent(null)}
+          event={moveSeriesEvent}
+          onConfirm={({ weekday, hour, minute }) => {
+            const { movedCount } = moveRecurringSeries(moveSeriesEvent.id, { weekday, hour, minute })
+            setMoveSeriesEvent(null)
+            if (movedCount > 0) {
+              alert(`${movedCount} מופעים עתידיים של "${moveSeriesEvent.title}" הועברו.`)
+            }
+          }}
+        />
 
         <div className="flex flex-wrap items-center gap-4 rounded-2xl bg-secondary/60 px-4 py-3 text-xs font-medium text-muted-foreground">
           <span className="flex items-center gap-1.5">

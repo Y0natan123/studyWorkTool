@@ -32,6 +32,7 @@ import { buildIcs, downloadIcs } from "@/lib/ics"
 import IcsImportModal from "@/components/shared/IcsImportModal"
 import * as sapCatalog from "@/lib/sapCatalog"
 import { HOMEWORK_TEMPLATES } from "@/data/homeworkTemplates"
+import { COURSE_MOODLE_LINKS } from "@/data/courseLinks"
 
 export default function SettingsPage() {
   const {
@@ -47,6 +48,7 @@ export default function SettingsPage() {
     addSyllabusTopic,
     upsertCourseNote,
     deleteAllEvents,
+    addResourceLink,
     exportData,
     importData,
     resetAllData,
@@ -115,6 +117,11 @@ export default function SettingsPage() {
     const courseId = existing?.id || `c_sap_${Date.now().toString(36)}`
     if (!existing) {
       addCourse({ id: courseId, name: courseName, code: courseCode, credits })
+
+      const moodleUrl = COURSE_MOODLE_LINKS[courseCode]
+      if (moodleUrl) {
+        addResourceLink(courseId, { label: "דף הקורס ב-Moodle", url: moodleUrl, category: "moodle" })
+      }
 
       sapCatalog.splitSyllabusTopics(general["סילבוס"]).forEach((topic) => {
         addSyllabusTopic(courseId, topic)

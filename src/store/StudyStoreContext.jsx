@@ -528,6 +528,73 @@ export function StudyStoreProvider({ children }) {
     [events, setEvents, syncUrl, queueCalendarCall]
   )
 
+  // Moves every future occurrence of a recurring class (same title + courseId +
+  // type + same weekday/time-of-day as the clicked event) to a new weekday and
+  // time of day, preserving each occurrence's own week and duration. Used when a
+  // lecture/tutorial section permanently changes slot (e.g. switched groups).
+  const moveRecurringSeries = useCallback(
+    (eventId, { weekday, hour, minute }) => {
+      const anchor = events.find((e) => e.id === eventId)
+      if (!anchor) return { movedCount: 0 }
+
+      const anchorStart = new Date(anchor.start)
+      const anchorWeekday = anchorStart.getDay()
+      const anchorHour = anchorStart.getHours()
+      const anchorMinute = anchorStart.getMinutes()
+      const durationMs = new Date(anchor.end) - anchorStart
+      const now = Date.now()
+
+      const matches = events.filter(
+        (e) =>
+          e.title === anchor.title &&
+          e.courseId === anchor.courseId &&
+          e.type === anchor.type &&
+          new Date(e.start).getTime() >= now &&
+          new Date(e.start).getDay() === anchorWeekday &&
+          new Date(e.start).getHours() === anchorHour &&
+          new Date(e.start).getMinutes() === anchorMinute
+      )
+
+      const updates = new Map() // id -> { start, end, calendarEventId }
+      matches.forEach((e) => {
+        const oldStart = new Date(e.start)
+        const newStart = new Date(oldStart)
+        const dayDelta = weekday - anchorWeekday
+        newStart.setDate(newStart.getDate() + dayDelta)
+        newStart.setHours(hour, minute, 0, 0)
+        const newEnd = new Date(newStart.getTime() + durationMs)
+        updates.set(e.id, {
+          start: newStart.toISOString(),
+          end: newEnd.toISOString(),
+          calendarEventId: e.calendarEventId,
+        })
+      })
+
+      setEvents((prev) => prev.map((e) => (updates.has(e.id) ? { ...e, ...updates.get(e.id) } : e)))
+
+      if (syncUrl) {
+        updates.forEach(({ start, end, calendarEventId }) => {
+          if (!calendarEventId) return
+          setCalendarPushStatus("pushing")
+          queueCalendarCall(() =>
+            sheetsSync.updateCalendarEvent(syncUrl, { calendarEventId, startISO: start, endISO: end })
+          )
+            .then(() => {
+              setCalendarPushStatus("pushed")
+              setCalendarPushError(null)
+            })
+            .catch((err) => {
+              setCalendarPushStatus("error")
+              setCalendarPushError(err.message)
+            })
+        })
+      }
+
+      return { movedCount: matches.length }
+    },
+    [events, setEvents, syncUrl, queueCalendarCall]
+  )
+
   const addTask = useCallback(
     (task) => {
       setTasks((prev) => [...prev, { id: uid("t"), status: "todo", priority: "medium", ...task }])
@@ -637,6 +704,7 @@ export function StudyStoreProvider({ children }) {
       addEvent,
       updateEvent,
       deleteEvent,
+      moveRecurringSeries,
       addTask,
       updateTask,
       deleteTask,
@@ -682,6 +750,7 @@ export function StudyStoreProvider({ children }) {
       addEvent,
       updateEvent,
       deleteEvent,
+      moveRecurringSeries,
       addTask,
       updateTask,
       deleteTask,
