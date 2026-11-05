@@ -54,6 +54,8 @@ export default function CourseHubPage({ courseId, onBack }) {
     settings,
     addTask,
     addEvent,
+    toggleTaskDone,
+    deleteTask,
   } = useStudyStore()
 
   const course = courses.find((c) => c.id === courseId)
@@ -245,6 +247,67 @@ export default function CourseHubPage({ courseId, onBack }) {
           </Button>
         )}
       </div>
+
+      {/* All homework for this course — every task, soonest due date first */}
+      {courseTasks.length > 0 && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-1.5">
+              <ListChecks className="h-4 w-4" />
+              כל שיעורי הבית
+            </CardTitle>
+            <CardDescription>
+              {pendingTasks.length} פתוחות מתוך {courseTasks.length} — ממוין לפי תאריך הגשה
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-1">
+            {[...courseTasks]
+              .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate))
+              .map((t) => {
+                const done = t.status === "done"
+                const isOverdue = !done && new Date(t.dueDate).getTime() < Date.now()
+                return (
+                  <div
+                    key={t.id}
+                    className="group flex items-center gap-2.5 rounded-lg px-1.5 py-2 hover:bg-accent"
+                  >
+                    <button
+                      onClick={() => toggleTaskDone(t.id)}
+                      className={cn(
+                        "flex h-4.5 w-4.5 shrink-0 items-center justify-center rounded-full border-2 transition-colors",
+                        done ? "border-primary bg-primary" : "border-muted-foreground/30"
+                      )}
+                    >
+                      {done && <span className="h-1.5 w-1.5 rounded-full bg-primary-foreground" />}
+                    </button>
+                    <span
+                      className={cn(
+                        "flex-1 truncate text-sm",
+                        done && "text-muted-foreground line-through"
+                      )}
+                    >
+                      {t.title}
+                    </span>
+                    <span
+                      className={cn(
+                        "shrink-0 text-xs",
+                        isOverdue ? "font-medium text-destructive" : "text-muted-foreground"
+                      )}
+                    >
+                      {new Date(t.dueDate).toLocaleDateString("he-IL", { day: "numeric", month: "short" })}
+                    </span>
+                    <button
+                      onClick={() => deleteTask(t.id)}
+                      className="shrink-0 text-muted-foreground opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                )
+              })}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Progress & Metrics */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
